@@ -2,6 +2,7 @@ import { useState } from 'react';
 import styles from './Login.module.css';
 import billbuddyLogo from '../assets/BillBuddy - Logo.png';
 import { auth } from '../lib/firebase';
+import '../App.css';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, createUserWithEmailAndPassword } from 'firebase/auth';
 
 export default function Login() {
@@ -18,13 +19,11 @@ export default function Login() {
         try {
             setLoading(true);
             const cred = await signInWithEmailAndPassword(auth, email, password);
-            const idToken = await cred.user.getIdToken(); /// להכניס לרשומת יוזר
+            const idToken = await cred.user.getIdToken();
 
-            // שמירה מקומית בדפדפן כדי שבקריאות הבאות לשרת יהיה מאיפה לקחת אותו
             localStorage.setItem('bb_id_token', idToken);
 
             console.log('Signed in as:', cred.user.email);
-
         } catch (err) {
             console.log('Sign in error:', err?.code, err?.message);
             setError(getAuthErrorMessage(err));
@@ -40,6 +39,27 @@ export default function Login() {
 
             localStorage.setItem('bb_id_token', idToken);
             console.log('Signed up as:', cred.user.email);
+            const firstName = document.getElementById('firstName')?.value || '';
+            const lastName  = document.getElementById('lastName')?.value  || '';
+
+            await fetch('http://localhost:5000/api/accounts/init', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+              },
+              body: JSON.stringify({ firstName, lastName }),
+            });
+
+            await fetch('http://localhost:5000/api/invites/claim', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+              },
+            });
+
+
 
         } catch (err) {
             console.log('Sign up error:', err?.code, err?.message);
@@ -55,17 +75,17 @@ export default function Login() {
       <div className={styles.card}>
         <img src={billbuddyLogo} alt="BillBuddy logo" className={styles.logo} />
 
-        <div className={styles.tabs}>
+        <div className="tabs">
           <button
             type="button"
-            className={`${styles.tab} ${mode === 'signin' ? styles.tabActive : ''}`}
+            className={`tab ${mode === 'signin' ? 'tabActive' : ''}`}
             onClick={() => { setMode('signin'); setError(''); setMessage(''); }}
           >
             Sign in
           </button>
           <button
             type="button"
-            className={`${styles.tab} ${mode === 'signup' ? styles.tabActive : ''}`}
+            className={`tab ${mode === 'signup' ? 'tabActive' : ''}`}
             onClick={() => { setMode('signup'); setError(''); setMessage(''); }}
           >
             Sign up
@@ -141,7 +161,7 @@ export default function Login() {
             </div>
             )}
 
-          <button className={styles.button} type="submit" disabled={loading}>
+          <button className="button" type="submit" disabled={loading}>
             {loading
               ? (mode === 'signin' ? 'Signing in…' : 'Creating account…')
               : (mode === 'signin' ? 'Sign in' : 'Create account')}
@@ -187,9 +207,9 @@ export default function Login() {
     }
     try{
       await sendPasswordResetEmail(auth, email);
-      setMessage('במידה וקיים משתמש עם כתובת האימייל הזו, יישלח קישור לאיפוס הסיסמה.');
+      setMessage('במידה וקיים משתמש עם כתובת האימייל הזו, יישלח קישור לאיפוס הסיסמה');
     } catch {
-      setError('כדי לאפס סיסמה, הזינו קודם את כתובת האימייל.');
+      setError('כדי לאפס סיסמה, הזינו קודם את כתובת האימייל');
     }
   }
 }

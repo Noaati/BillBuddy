@@ -1,5 +1,16 @@
-import Login from './pages/Login';
+import useAuth from './hooks/useAuth';
+import Login from './pages/login';
+import Dashboard from './pages/Dashboard';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
-  return <Login />;
+  const { user, loading } = useAuth();
+
+  if (loading) return <div style={{ padding: 20 }}>
+    <div style={{ textAlign: 'center', padding: 12 }}>
+      <div className="spinner" role="status" aria-label="Loading" />
+    </div>
+  </div>;
+
+  return user ? <Dashboard /> : <Login />;
 }

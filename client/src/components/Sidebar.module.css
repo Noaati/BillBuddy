@@ -1,0 +1,83 @@
+.sideBarContainer{
+    display: flex;
+    flex-direction: column;
+    width: 20%;
+    padding: 20px;
+    border-right: 1px solid #eee;
+    background-color: white;
+    min-height: 100vh;
+}
+
+.logo{
+    width: 70%;
+}
+
+.icon{
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+}
+
+.linksList{
+    display: flex;
+  margin-top: 10px;
+    align-items: center;
+}
+
+.bottomSection {
+  margin-top: auto;
+}
+
+.groupItem {
+  display: flex;
+  width: 100%;
+  padding: 2%;
+}
+
+.groupButton {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  background: white;
+  color: black;
+  font-size: 15px;
+  cursor: pointer;
+  text-align: left; 
+}
+
+.groupButton:hover {
+  background-color: #e8e0e7;
+}
+
+.numberOfMembers{
+    background-color: #e48046; 
+    border-radius: 5px;
+    padding: 2px 6px;
+    color: white;
+    font-size: 12px;
+}
+
+.noGroup {
+    opacity: 0.6;
+    text-align: center;
+    margin: 2%;
+}
+
+@media (max-width: 768px) {
+  .sideBarContainer {
+    width: 100%;
+    min-height: 100dvh;
+    border-right: none;
+    overflow-y: auto;
+  }
+}
+
+.groupButtonActive {
+  background-color: #e8e0e7;
+  /*outline: 2px solid #000;*/
+}

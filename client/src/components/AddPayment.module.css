@@ -1,0 +1,114 @@
+.payeesList {
+  display: grid;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.payeeItem {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  border: 1px solid #e6e6e6;
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px 16px 12px 28px;
+  cursor: pointer;
+}
+
+.payeeItem:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    background-color: #e8e0e7;
+ }
+
+.itemStripe {
+  position: absolute;
+  inset-block: 10px;
+  inset-inline-start: 12px;
+  width: 6px;
+  background: #A36F9A;
+  border-radius: 6px;
+}
+
+.leftSide { display: grid; gap: 2px; text-align: left; }
+.title { font-weight: bold; }
+.subtitle { font-size: 13px; color: #6b7280; }
+
+.amountOwed { color: #c62828; }
+
+.selected {
+  outline: 2px solid #8ab4f8;
+  border-color: #8ab4f8;
+}
+
+.includeCheckbox{
+    display: flex;
+    gap: 15px;
+}
+
+.shareItem{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    border: 1px solid #e6e6e6;
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px 16px 12px 28px;
+}
+
+.includeCheckbox input[type="checkbox"]{
+  padding: 0 !important; 
+  margin: 0;                 
+  margin-inline-end: 10px; 
+  transform: translateY(1px);
+  accent-color: #6F5876;
+}
+
+.selectAllButton{
+  border: 1px solid #c4c4c4;
+  border-radius: 5px;
+  background-color: white;
+  font-size: 12px;
+  padding: 5px;
+  margin: 3px;
+}
+
+.sharesHeader{
+  display: flex;
+  justify-content: space-between;
+}
+
+.totalSection{
+  display: flex;
+  justify-content: space-between;
+}
+
+.customAmountLabel{
+  margin: 5px;
+}
+
+.customAmount {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.paymentDivider{
+  margin-bottom: 2px !important; 
+}
+
+.paymentSection{
+  display: flex;
+  justify-content: space-between;
+}
+
+.muted { color: grey; }
+
+.emptyState {
+  padding: 12px 16px;
+  text-align: center;
+  opacity: 0.7;
+}

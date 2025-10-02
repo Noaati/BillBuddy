@@ -1,0 +1,113 @@
+.addExpenseForm{
+    margin-top: 2%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+input[type="radio"] {
+  accent-color: #E07B39;
+}
+
+.segment {
+  display: inline-flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.segmentBtn {
+  padding: 8px 12px;
+  background: #fff;
+  border: 0;
+  cursor: pointer;
+  font-weight: 500;
+}
+.segmentBtn + .segmentBtn {
+  border-inline-start: 1px solid #e5e7eb;
+}
+.active {
+  background: #E07B39;   /* הצבע שלך */
+  color: #fff;
+}
+
+.membersList{
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+  width: 100%;
+}
+
+.checkboxRow{
+  display: flex;
+  align-items: center;
+  gap: 0;              
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.memberRow{
+    display: grid;
+    grid-template-columns:
+    120px 128px;
+    column-gap: 12px;
+    align-items: center;
+    width: 100%;
+}
+
+.memberRow input[type="checkbox"]{
+  padding: 0 !important; 
+  margin: 0;                 
+  margin-inline-end: 10px; 
+  transform: translateY(1px);
+  accent-color: #6F5876;
+}
+
+.amountInput{
+  width: 128px !important; 
+  justify-self: start; 
+  flex: none;
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.labelInline {
+  color: #000000;
+  min-width: 80px;
+}
+
+.fieldRow select {
+  flex: 1;
+  width: auto !important;
+}
+
+@media (max-width: 480px) {
+  .fieldRow { flex-direction: column; align-items: stretch; }
+  .fieldRow select { width: 100% !important; }
+}
+
+/* עטיפה שמאפשרת להצמיד סמל בתוך שדה */
+.inputWithPrefix {
+  position: relative;
+  width: 100%;
+}
+
+.prefix {
+  position: absolute;
+  inset-inline-start: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-weight: 600;
+  color: #6F5876;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.inputWithPrefix input {
+  padding-inline-start: 40px !important;
+}

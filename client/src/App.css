@@ -1,0 +1,103 @@
+.button {
+  margin-top: 8px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  background: #A36F9A;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.divider {
+  height: 1px;
+  background-color: #ddd;
+  margin: 15px 0;
+}
+
+img { max-width: 100%; height: auto; }
+
+.link{
+    text-decoration: none;
+    color: black;
+}
+
+select, textarea,
+input:not([type="file"]):not([type="checkbox"]):not([type="radio"]) {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  font-size: 14px;
+  text-align: left;
+}
+
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.groupIcon {
+  width: 25px;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: #f1eef2;
+  border-radius: 12px;
+  padding: 4px;
+  margin: 8px 0 12px;
+  gap: 8px;
+}
+
+.tab {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #6F5876;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: #fff;
+  color: #3C2F41;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #eee;
+  border-top-color: #E07B39;
+  border-radius: 50%;
+  animation: bb-spin 0.8s linear infinite;
+  margin: 12px auto;
+}
+
+@keyframes bb-spin {
+  to { transform: rotate(360deg); }
+}
+
+.toast {
+  border: 1px solid #A36F9A;
+  border-radius: 12px;
+  padding: 20px;
+  font-weight: 500;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+  backdrop-filter: blur(8px);
+  animation: bb-slide-in 200ms ease-out;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}

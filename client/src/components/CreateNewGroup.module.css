@@ -1,0 +1,52 @@
+.groupForm{
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.groupFields{
+    flex: 1 1 70%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.profileImage {
+  flex: 0 0 30%;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 8px;
+  background: #fafafa;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profileImageImg {
+  width: 100%;
+  aspect-ratio: 1 / 1; 
+  object-fit: cover;  
+  border-radius: 8px;
+}
+
+.removeMemberButton{
+    background: none;
+    border: none;
+    color: #E07B39;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+@media (max-width: 768px) {
+  .groupForm {
+    flex-direction: column;
+  }
+  .groupFields{
+    gap: 8px;
+  }
+  .profileImage {
+    flex-basis: auto;
+    width: 40%;
+  }
+}

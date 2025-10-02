@@ -1,0 +1,86 @@
+.panelItem {
+    display:flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    border-radius: 10px;
+    background-color: white;
+    border: 1px solid #eee;
+    padding: 12px 16px 12px 28px;
+    margin-bottom: 12px;
+}
+
+.itemStripe {
+  position: absolute;
+  inset-block: 10px;
+  inset-inline-start: 12px;
+  width: 6px;
+  background: #E07B39;
+  border-radius: 6px;
+}
+
+.expenseDetails {
+  padding: 20px 16px;
+  border: 1px solid #eee;
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  background: #faf9fa;
+  margin-top: -12px;
+  margin-bottom: 16px;
+}
+
+.expenseDetailsTitle {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.expenseShareItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+}
+
+.shareAmount {
+    color: grey;
+    margin-right: 10px;
+}
+
+.shareItemDot{
+    color: #A36F9A;
+    font-size: 20px;
+    margin-right: 6px;
+}
+
+.checkMarkIcon {
+  width: 20px;
+}
+
+.allSettled{
+  font-size: 12px;
+  color: #008000;
+}
+
+.checkMarkAndAmount{
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+
+.amountAndPayButton{
+  display: flex;
+  flex-direction: column;
+}
+
+.payNow{
+  padding: 6px 10px; 
+  font-size: 12px;
+  line-height: 1;
+}
+
+.total{
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px 0 10px;
+}
