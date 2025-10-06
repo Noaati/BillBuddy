@@ -101,3 +101,8 @@ input:not([type="file"]):not([type="checkbox"]):not([type="radio"]) {
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
 }
+
+.settingsIcon {
+  height: 24px;
+  margin-top: 5px;
+}

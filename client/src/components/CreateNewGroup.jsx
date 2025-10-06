@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import styles from './CreateNewGroup.module.css';
 import defaultAvatar from "../assets/defaultAvatar.png";
+import archiveIcon from "../assets/archiveIcon.png";
 import { auth } from '../lib/firebase';
+import { toast } from 'react-hot-toast';
 
-export default function CreateNewGroup({ account, onSuccess = () => {} }) {
+export default function CreateNewGroup({ account, onSuccess = () => {}, group = null }) {
     const [members, setMembers] = useState([]);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [currencyCode, setCurrencyCode] = useState('USD');
@@ -11,6 +13,15 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
     const [groupName, setGroupName] = useState('');
     const [file, setFile] = useState(null);
     const [submitting, setSubmitting] = useState(false);
+    const [toDeactivate, setToDeactivate] = useState([]);
+
+    useEffect(() => {
+        if (group) {
+        setGroupName(group.name || '');
+        setCurrencyCode(group.currency || 'USD');
+        setPreviewUrl(group.image || null);
+        }
+    }, [group]);
 
     function handleFileChange(e) {
         const file = e.target.files?.[0];
@@ -38,16 +49,42 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
     }, []);
 
     useEffect(() => {
+        if (group) return;
         const fullName = [account?.firstName, account?.lastName].filter(Boolean).join(' ');
         const u = auth.currentUser; 
         console.log(u);
         setMembers([{
             id: account?._id,
             name: fullName || "",
-            email: account?.email || ""
+            email: account?.email || "",
+            isExisting: false
         }]);
         handleAddMember();
     }, []);
+
+    useEffect(() => {
+        if (!group) return;
+        (async () => {
+        try {
+            const idToken = await auth.currentUser?.getIdToken();
+            const r = await fetch(`http://localhost:5000/api/groups/${group.id || group._id}/members`, {
+            headers: { 'Authorization': `Bearer ${idToken}` }
+            });
+            const data = await r.json();
+            if (r.ok && Array.isArray(data?.members)) {
+            const rows = data.members.map(m => ({
+                id: m.id,
+                name: m.name,
+                email: m.email || '',
+                isExisting: true
+            }));
+            setMembers(rows);
+            }
+        } catch (e) {
+            console.warn('load members failed', e);
+        }
+        })();
+    }, [group]);
 
     function upsertMember(id, field, value) {
         setMembers(prev => {
@@ -59,26 +96,46 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
                 return next;
             }
             const newId = id ?? (crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
-            const newMember = { id: newId, name: "", email: "", [field]: value };
+            const newMember = { id: newId, name: "", email: "", isExisting: false, [field]: value };
             return [...prev, newMember];
         });
     }
 
     function handleRemoveMember(id) {
-        setMembers(prev => prev.filter(m => m.id !== id));
+        setMembers(prev => {
+        const target = prev.find(m => m.id === id);
+        if (target?.isExisting) {
+            setToDeactivate(d => d.includes(id) ? d : [...d, id]);
+        }
+        return prev.filter(m => m.id !== id);
+        });
     }
 
     function handleAddMember(e) { 
         if (e) e.preventDefault(); 
-        setMembers(prev => [...prev, { id: crypto.randomUUID(), name: "", email: "" }]);
+        setMembers(prev => [...prev, { id: crypto.randomUUID(), name: "", email: "", isExisting: false}]);
 
+    }
+
+    async function handleDeactivateGroup(){
+        const idToken = await auth.currentUser?.getIdToken();
+        console.log('group', group);
+        const dRes = await fetch(`http://localhost:5000/api/groups/${group.id}/updateActive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ active: false })
+        });
+        const dData = await dRes.json();
+        if (!dRes.ok) throw new Error(dData?.error || 'Deactivate failed');
+        onSuccess({ fullGroup: null });
+        toast.success(`Group ${group.name} archived successfully`);
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
         setSubmitting(true);
         try {
-            let imageUrlToSave = defaultAvatar;
+            let imageUrlToSave = group ? (group?.image || defaultAvatar) : defaultAvatar; // [CHANGED]
             if (file) {
             const fd = new FormData();
             fd.append('image', file);
@@ -88,7 +145,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
             }
 
             const idToken = await auth.currentUser?.getIdToken();
-            const payload = { groupId: null, groupName, currencyCode, imageUrl: imageUrlToSave };
+            const payload = { groupId: group ? (group.id || group._id) : null, groupName, currencyCode, imageUrl: imageUrlToSave };
 
             const res = await fetch('http://localhost:5000/api/groups/init', {
             method: 'POST',
@@ -97,11 +154,20 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message || 'Group init failed');
-            const groupId = data.group._id;
+            const groupId = group ? (group.id || group._id) : data.group._id;
+            let invites = [];
 
-            const invites = (members || [])
-            .filter(m => (m.name || '').trim() && (m.email || '').trim())
-            .map(m => ({ name: m.name.trim(), email: m.email.trim().toLowerCase() }));
+            if(!group){
+                invites = (members || [])
+                .filter(m => (m.name || '').trim() && (m.email || '').trim())
+                .map(m => ({ name: m.name.trim(), email: m.email.trim().toLowerCase() }));
+            }
+            else{
+                invites = (members || [])
+                .filter(m => !m.isExisting) // חדשים בלבד
+                .filter(m => (m.name || '').trim() && (m.email || '').trim())
+                .map(m => ({ name: m.name.trim(), email: m.email.trim().toLowerCase() }));
+            }
 
             if (invites.length) {
                 const mRes = await fetch(`http://localhost:5000/api/groups/${groupId}/members/bulk`, {
@@ -111,6 +177,16 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
                 });
                 const mData = await mRes.json();
                 if (!mRes.ok) throw new Error(mData?.message || 'Members bulk failed');
+            }
+
+            if (toDeactivate.length) {
+                const dRes = await fetch(`http://localhost:5000/api/members/deactivate-bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+                    body: JSON.stringify({ memberIds: toDeactivate })
+                });
+                const dData = await dRes.json();
+                if (!dRes.ok) throw new Error(dData?.error || 'Deactivate failed');
             }
 
             let fullGroup = null;
@@ -124,7 +200,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
                     fullGroup = {
                     id: g._id || g.id,
                     name: g.name,
-                    currency: g.currencyCode,
+                    currency: g.currency,
                     image: g.image,
                     numberOfMembers: g.numberOfMembers,
                     };
@@ -141,7 +217,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
         } finally {
             setSubmitting(false);
         }
-        }
+    }
 
 
     const isFormValid = useMemo(() => {
@@ -171,7 +247,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
             }} />
-            <div style={{ marginTop: 12 }}>Creating your group…</div>
+            <div style={{ marginTop: 12 }}>{group ? 'Updating your group…' : 'Creating your group…'}</div>
             </div>
         );
     }
@@ -180,7 +256,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
         <div>
             <div className={styles.groupForm}>
                 <div className={styles.groupFields}>
-                <input type="text" placeholder="Group Name" onChange={(e) => setGroupName(e.target.value)} required />
+                <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} required />
                 <select required value={currencyCode} onChange={(e)=>setCurrencyCode(e.target.value)}>
                     {currencies.map(code => (
                     <option key={code} value={code}>{code}</option>
@@ -214,14 +290,16 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
                 placeholder="Full name"
                 value={m.name}
                 onChange={(e) => upsertMember(m.id, "name", e.target.value)}
-                required
+                required={!m.isExisting}
+                readOnly={!!group && m.isExisting}
             />
             <input
                 type="email"
                 placeholder="Email"
                 value={m.email}
                 onChange={(e) => upsertMember(m.id, "email", e.target.value)}
-                required
+                required={!m.isExisting}
+                readOnly={!!group && m.isExisting}
             />
             <button className={styles.removeMemberButton} onClick={() => handleRemoveMember(m.id)}>✕</button>
 
@@ -229,7 +307,17 @@ export default function CreateNewGroup({ account, onSuccess = () => {} }) {
         ))}
         <a className="link" href="#" onClick={handleAddMember}>+ Add a member</a>
         <br />
-        <button className="button" type="submit" onClick={handleSubmit} disabled={!isFormValid}>Create</button>
+        <div className={styles.actions}>
+            <button className="button" type="submit" onClick={handleSubmit} disabled={!isFormValid}>
+                {group ? 'Save changes' : 'Create'}
+            </button>
+            {group && (
+                <button className={styles.archiveButton} type="button" onClick={handleDeactivateGroup}>
+                    <img src={archiveIcon} alt="archive icon" className={styles.archiveIcon} />
+                    Archive Group
+                </button>
+            )}
         </div>
+    </div>
     );
 }

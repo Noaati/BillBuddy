@@ -9,19 +9,23 @@ import '../App.css';
 export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => {} , account, selectedGroupId}) {
     const [groups, setGroups] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [hasArchived, setHasArchived] = useState(false);
+    const [viewArchived, setViewArchived] = useState(false);
 
     useEffect(() => {
         (async () => {
             try {
                 setLoading(true);
                 const idToken = await auth.currentUser.getIdToken();
-                const res = await fetch('http://localhost:5000/api/groups', {
-                headers: { 'Authorization': `Bearer ${idToken}` }
+                const status = viewArchived ? 'all' : 'active';
+                const res = await fetch(`http://localhost:5000/api/groups?status=${status}`, {
+                    headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const data = await res.json();
                 if (res.ok && data.ok) {
                     setGroups(data.groups || []);
                     setLoading(false);
+                    setHasArchived(data.hasArchived || false);
                 } else {
                     console.error('Fetch groups failed:', data);
                     setGroups([]);
@@ -34,7 +38,7 @@ export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => 
                 setLoading(false);
             }
         })();
-    }, []);
+    }, [viewArchived]);
 
 
     async function handleLogout() {
@@ -71,9 +75,25 @@ export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => 
                         <img src={groupicon} alt="Group icon" className="groupIcon" />
                         <span>{g.name}</span>
                         <div className={styles.numberOfMembers}>{g.numberOfMembers}</div>
+                        {!g.active && 
+                            <span style={{marginLeft: '8px', color: 'grey', fontSize: '12px'}}>archived</span>
+                        }
                     </button>
                 </div>
             ))}
+
+            {hasArchived && !loading && !viewArchived && (
+                <div className={styles.archivedClick} onClick={() => setViewArchived(true)}>
+                    Click to view archived groups
+                </div>
+            )}
+
+            
+            {viewArchived && !loading && (
+                <div className={styles.archivedClick} onClick={() => setViewArchived(false)}>
+                    Click to hide archived groups
+                </div>
+            )}
 
             {!loading && Array.isArray(groups) && groups.length === 0 && (
                 <div className={styles.noGroup}>No groups yet.

@@ -8,6 +8,7 @@ import GroupPage from "../components/GroupPage";
 import AddExpense from "../components/AddExpense";
 import selectGroup from '../assets/selectGroup.png';
 import AddPayment from "../components/AddPayment";
+import { Toaster } from 'react-hot-toast';
 
 export default function Dashboard() {
   const [openModal, setOpenModal] = useState(false);
@@ -23,6 +24,24 @@ export default function Dashboard() {
 
   let modalContent = null;
   let modalTitle = '';
+
+  if (modalType === 'editGroup') {
+    modalContent = (
+      <CreateNewGroup
+        group={selectedGroup}
+        account={account}
+        onSuccess={({ fullGroup }) => {
+          setSelectedGroup(fullGroup);
+          setOpenModal(false);
+          setSidebarRefreshKey(k => k + 1);
+          if (isMobile) setMobilePanel('group');
+        }}
+
+      />
+    );
+
+    modalTitle = 'Edit Group';
+  }
 
   if (modalType === 'newGroup') {
     modalContent = (
@@ -115,6 +134,14 @@ export default function Dashboard() {
             setModalType('addPayment');
             setOpenModal(true);
           }}
+          onEditGroup={() => {
+            setModalType('editGroup');
+            setOpenModal(true);
+          }} 
+          onRestored={() => {
+            setSelectedGroup(g => g ? { ...g, active: true } : g);
+            setSidebarRefreshKey(k => k + 1);
+          }}
           />
         </div>
       </div>
@@ -125,6 +152,7 @@ export default function Dashboard() {
     if (mobilePanel === "sidebar") {
       return (
       <>
+        <Toaster position="top-center" toastOptions={{ duration: 2200, className: 'toast' }} />
         <div style={{ display: "flex", height: "100dvh" }}>
           <Sidebar
             key={sidebarRefreshKey}
@@ -144,11 +172,25 @@ export default function Dashboard() {
       </>
       );
     }
-    return <div style={{ height: "100dvh" }}>{content}</div>;
+    return (
+      <>
+        <Toaster position="top-center" toastOptions={{ duration: 2200, className: 'toast' }} />
+        <div style={{ height: "100dvh" }}>{content}</div>
+        <Modal
+          open={openModal}
+          onClose={() => setOpenModal(false)}
+          title={modalTitle}
+          content={modalContent}
+        />
+      </>
+    );
+
   }
 
   return (
     <>
+        <Toaster position="top-center" toastOptions={{ duration: 2200, className: 'toast' }} />
+
       <div style={{ display: "flex", minHeight: "100vh" }}>
         <Sidebar key={sidebarRefreshKey} selectedGroupId={selectedGroup?.id} onSelectGroup={handleSelectGroup} onNewGroup={() => { setModalType('newGroup'); setOpenModal(true); }} account={account} />
         <div style={{ flex: 1 }}>{content}</div>

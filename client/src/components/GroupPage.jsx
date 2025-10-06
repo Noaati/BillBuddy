@@ -1,5 +1,7 @@
 
 import groupicon from '../assets/groupIcon.png';
+import hamburger from '../assets/hamburger.png';
+import settings from '../assets/settingIcon.png';
 import styles from './GroupPage.module.css';
 import { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
@@ -7,15 +9,17 @@ import ExpensesPanel from './ExpensesPanel';
 import PaymentsPanel from './PaymentsPanel';
 import BalancesPanel from './BalancesPanel';
 import { getCurrencySymbol } from '../utils/currency';
-import { Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
-export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, onAddPayment = () => {}, onPayNow = () => {}, panel }) {
+
+export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, onAddPayment = () => {}, onPayNow = () => {}, panel, onEditGroup = () => {}, onRestored = () => {} }) {
     const [mode, setMode] = useState(panel ?? 'Expenses');
     const [expenses, setExpenses] = useState(null);
     const avatarSrc = group?.image || groupicon;
     const [payments, setPayments] = useState(null);
     const [balances, setBalances] = useState(null);
     const symbol = getCurrencySymbol(group?.currency || 'USD');
+    const [openActions, setOpenActions] = useState(false);
 
     useEffect(() => {
         if (panel && panel !== mode) setMode(panel);
@@ -55,12 +59,22 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
         })();
     }, [group, mode, refreshKey]);
 
+    async function handleRestoreGroup() {
+        const idToken = await auth.currentUser?.getIdToken();
+        console.log('group', group);
+        const dRes = await fetch(`http://localhost:5000/api/groups/${group.id}/updateActive`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+            body: JSON.stringify({ active: true })
+        });
+        const dData = await dRes.json();
+        if (!dRes.ok) throw new Error(dData?.error || 'Deactivate failed');
+        toast.success(`Group ${group.name} restored successfully`);
+        onRestored();
+    }
+
     return (
         <>
-        <Toaster toastOptions={{
-                    duration: 2200,
-                    className: 'toast'
-                }} position="top-center" />
         <div className={styles.groupPageContainer}>
             <div className={styles.header}>
                 <div className={styles.headerLeft}>
@@ -80,10 +94,59 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
                     </div>
                 </div>
 
-                <div className={styles.buttonsContainer}>
+                {group?.active ? (
+                <>
+                    <div className={styles.buttonsContainerDesktop}>
+                    <button
+                        type="button"
+                        aria-label="Open group settings"
+                        className={styles.iconButton}
+                        onClick={onEditGroup}
+                    >
+                        <img src={settings} alt="" className={styles.settingsIcon} />
+                    </button>
                     <button className={styles.expenseButton} onClick={onAddExpense}>+ Add Expense</button>
                     <button className={styles.paymentButton} onClick={onAddPayment}>{symbol} Add Payment</button>
-                </div>
+                    </div>
+
+                    <div className={styles.buttonsContainerMobile}>
+                    <button
+                        type="button"
+                        aria-label="More actions"
+                        aria-haspopup="menu"
+                        aria-expanded={openActions}
+                        className={styles.actionsFab}
+                        onClick={() => setOpenActions(v => !v)}
+                    >
+                        <img src={hamburger} alt="Menu" className={styles.hamburgerIcon} />
+                    </button>
+
+                    {openActions && (
+                        <>
+                        <div className={styles.actionsBackdrop} onClick={() => setOpenActions(false)} />
+                        <div className={styles.actionsMenu} role="menu">
+                            <button type="button" role="menuitem" className={styles.actionsItem}
+                                    onClick={() => { onAddExpense(); setOpenActions(false); }}>
+                            + Add Expense
+                            </button>
+                            <button type="button" role="menuitem" className={styles.actionsItem}
+                                    onClick={() => { onAddPayment(); setOpenActions(false); }}>
+                            {symbol} Add Payment
+                            </button>
+                            <button type="button" role="menuitem" className={styles.actionsItem}
+                                    onClick={() => { onEditGroup(); setOpenActions(false); }}>
+                            Settings
+                            </button>
+                        </div>
+                        </>
+                    )}
+                    </div>
+                </>
+                ) : (
+                <button className={styles.expenseButton} onClick={handleRestoreGroup}>
+                    Restore Group
+                </button>
+                )}
 
             </div>
             <div className="divider"></div>

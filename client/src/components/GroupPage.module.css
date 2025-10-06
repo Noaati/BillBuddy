@@ -9,9 +9,10 @@
   gap: 15px;
 }
 
-.buttonsContainer{
+.buttonsContainerDesktop{
   margin-left: auto;
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -40,6 +41,7 @@
     color: #fff;
     font-size: 12px;
     cursor: pointer;
+    margin-left: auto;
 }
 
 .paymentButton{
@@ -52,3 +54,46 @@
     font-size: 12px;
     cursor: pointer;
 }
+
+.iconButton{
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.settingsIcon{
+  height: 24px;
+  display: block;
+  margin-top: 10px;
+}
+
+/* action mobile */
+
+.buttonsContainerDesktop { display: flex; gap: 8px; }
+.buttonsContainerMobile  { display: none; }
+
+@media (max-width: 768px){
+  .buttonsContainerDesktop { display: none; }
+  .buttonsContainerMobile  { display: inline-block; position: relative; }
+}
+
+.actionsFab{
+  width: 40px; height: 40px;
+  border: none;
+  background: transparent;
+}
+.actionsBackdrop{ position: fixed; inset: 0; background: transparent; z-index: 1000; }
+.actionsMenu{
+  position: absolute; right: 0; top: 110%; min-width: 180px;
+  background: #fff; border: 1px solid #D9D7DA; border-radius: 12px; padding: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 1001;
+}
+.actionsItem{
+  width: 100%; text-align: left; background: transparent; border: none;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+}
+.actionsItem:hover{ background: #FAF9F9; }
+.actionsItem:focus-visible{ outline: 2px solid #A36F9A; outline-offset: 2px; }

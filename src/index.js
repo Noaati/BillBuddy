@@ -220,6 +220,7 @@ app.post('/api/invites/claim', verifyFirebaseToken, async (req, res) => {
 
 app.get('/api/groups', verifyFirebaseToken, async (req, res) => {
   try {
+    const status = (req.query.status || 'active').toLowerCase();
     const { uid } = req.user;
 
     const memberDocs = await GroupMember.find(
@@ -237,11 +238,16 @@ app.get('/api/groups', verifyFirebaseToken, async (req, res) => {
       return res.json({ ok: true, groups: [] });
     }
 
-   const groups = await Group.find(
-      { _id: { $in: groupIds } },
-      { name: 1, image: 1, currency: 1 }
-   )
+    const groupFilter = { _id: { $in: groupIds } };
+    if (status === 'active')   groupFilter.active = true;
+    else if (status === 'archived') groupFilter.active = false;
+
+    const groups = await Group.find(
+        groupFilter,
+        { name: 1, image: 1, currency: 1, active: 1 }
+    )
     .populate('numberOfMembers')
+    .sort({ active: -1, createdAt: -1 })
     .lean({ virtuals: true });
 
     const payload = groups.map(g => ({
@@ -249,10 +255,13 @@ app.get('/api/groups', verifyFirebaseToken, async (req, res) => {
       name: g.name,
       image: g.image || null,
       currency: g.currency || 'USD',
+      active: !!g.active,
       numberOfMembers: g.numberOfMembers ?? 0
     }));
 
-    res.json({ ok: true, groups: payload });
+    const hasArchived = await Group.exists({ _id: { $in: groupIds }, active: false });
+
+    res.json({ ok: true, groups: payload, hasArchived: !!hasArchived });
   } catch (err) {
     console.error('list groups error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -958,6 +967,44 @@ app.post('/api/email/remind', verifyFirebaseToken, async (req, res) => {
   } catch (err) {
     console.error('send reminder error:', err);
     res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/members/deactivate-bulk', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { memberIds = [] } = req.body;
+    if (!Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({ error: 'must have memberIds' });
+    }
+
+    const r = await GroupMember.updateMany(
+      { _id: { $in: memberIds } },
+      { $set: { active: false } }
+    );
+
+    return res.json({ ok: true, modifiedCount: r.modifiedCount });
+  } catch (err) {
+    console.error('deactivate-bulk error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/groups/:groupId/updateActive', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { active } = req.body;
+    const { groupId } = req.params;
+
+    const g = await Group.findByIdAndUpdate(
+      groupId,
+      { $set: { active: active } },
+      { new: true }
+    );
+
+    if (!g) return res.status(404).json({ error: 'Group not found' });
+    return res.json({ ok: true, groupId: String(g._id), active: g.active });
+  } catch (err) {
+    console.error('deactivate group error:', err);
+    return res.status(500).json({ error: 'Server error' });
   }
 });
 

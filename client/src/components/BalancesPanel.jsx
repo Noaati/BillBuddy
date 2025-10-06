@@ -6,7 +6,6 @@ import { auth } from '../lib/firebase';
 import { toast } from 'react-hot-toast';
 import { useState } from "react";
 
-
 export default function BalancesPanel({ balances, group, refreshKey, onPayNow }) {
     const symbol = getCurrencySymbol(group?.currency || 'USD');
     const youOwe = balances?.youOwe || [];

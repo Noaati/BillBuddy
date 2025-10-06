@@ -81,3 +81,10 @@
   background-color: #e8e0e7;
   /*outline: 2px solid #000;*/
 }
+
+.archivedClick{
+  text-align: center;
+  cursor: pointer;
+  color: grey;
+  margin: 5px;
+}

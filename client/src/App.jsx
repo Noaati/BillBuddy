@@ -1,7 +1,6 @@
 import useAuth from './hooks/useAuth';
 import Login from './pages/login';
 import Dashboard from './pages/Dashboard';
-import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const { user, loading } = useAuth();
