@@ -15,11 +15,12 @@ export default function Login() {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    let idToken = null;
     if (mode === 'signin') {
         try {
             setLoading(true);
             const cred = await signInWithEmailAndPassword(auth, email, password);
-            const idToken = await cred.user.getIdToken();
+            idToken = await cred.user.getIdToken();
 
             localStorage.setItem('bb_id_token', idToken);
 
@@ -29,13 +30,14 @@ export default function Login() {
             setError(getAuthErrorMessage(err));
         } finally {
             setLoading(false);
+            await acceptInviteIfPending(); 
         }
     }
     else{
         try {
             setLoading(true);
             const cred = await createUserWithEmailAndPassword(auth, email, password);
-            const idToken = await cred.user.getIdToken(); 
+            idToken = await cred.user.getIdToken(); 
 
             localStorage.setItem('bb_id_token', idToken);
             console.log('Signed up as:', cred.user.email);
@@ -58,17 +60,45 @@ export default function Login() {
                 'Authorization': `Bearer ${idToken}`,
               },
             });
-
-
-
         } catch (err) {
             console.log('Sign up error:', err?.code, err?.message);
             setError(getAuthErrorMessage(err));
         } finally {
             setLoading(false);
+            await acceptInviteIfPending(); 
       }
     }
   }
+
+  async function acceptInviteIfPending() {
+    const idToken = await auth.currentUser?.getIdToken();
+    if (!idToken) return;
+    let pendingToken = localStorage.getItem('pending_invite_token') ||
+    new URLSearchParams(window.location.search).get('invite');
+
+    if (!pendingToken) {
+      const m = window.location.pathname.match(/\/join\/([^/]+)/);
+      if (m && m[1]) pendingToken = m[1];
+    }
+
+    if (!pendingToken) return;
+
+    try {
+      await fetch('http://localhost:5000/api/invite/accept', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ token: pendingToken }),
+      });
+    } catch (e) {
+      console.warn('invite accept failed', e);
+    } finally {
+      localStorage.removeItem('pending_invite_token');
+    }
+  }
+
 
   return (
     <div className={styles.wrap}>

@@ -99,7 +99,7 @@ app.get('/api/accounts/me', verifyFirebaseToken, async (req, res) => {
 app.post('/api/groups/init', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;
-    const { groupId = null, groupName = '', currencyCode, imageUrl = null } = req.body || {};
+    const { groupId = null, groupName = '', currencyCode, imageUrl = null, inviteToken = null } = req.body || {};
 
     const doc = {
       ownerId: uid,
@@ -107,6 +107,7 @@ app.post('/api/groups/init', verifyFirebaseToken, async (req, res) => {
       currency: String(currencyCode || 'USD').toUpperCase(),
       image: imageUrl || null,
       active: true,
+      ...(inviteToken ? { inviteToken } : {})
     };
 
     let group;
@@ -1008,6 +1009,46 @@ app.post('/api/groups/:groupId/updateActive', verifyFirebaseToken, async (req, r
   }
 });
 
+app.post('/api/invite/accept', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { token } = req.body;
+    const { uid, email: tokenEmail } = req.user;
+
+    const g = await Group.findOne(
+      { inviteToken: token },
+      { _id: 1, active: 1 }
+    ).lean();
+  
+    if (!g) return res.status(404).json({ error: 'Group not found' });
+
+    const acc = await Account.findById(uid).select('firstName lastName email').lean();
+    const email = (acc?.email || tokenEmail || '').trim().toLowerCase();
+    const name =
+      `${acc?.firstName || ''} ${acc?.lastName || ''}`.trim() ||
+      (email ? email.split('@')[0] : 'Member');
+
+    await GroupMember.updateOne(
+      { group: g._id, member: uid },
+      {
+        $setOnInsert: {
+          group: g._id,
+          member: uid,
+          email,
+          name
+        },
+        $set: { active: true }
+      },
+      { upsert: true }
+    );
+
+    return res.json({ ok: true, groupId: String(g._id) });
+
+
+  } catch (err) {
+    console.error('Failed to accept group invite:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
 
 ////////////
 const metaRoutes = require('./routes/meta');

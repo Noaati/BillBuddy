@@ -14,6 +14,9 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     const [file, setFile] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [toDeactivate, setToDeactivate] = useState([]);
+    const [inviteLink, setInviteLink] = useState('');
+    const [addMemberMode, setAddMemberMode] = useState('manual');
+    const selfEmail = auth.currentUser?.email?.toLowerCase() || '';
 
     useEffect(() => {
         if (group) {
@@ -57,7 +60,8 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             id: account?._id,
             name: fullName || "",
             email: account?.email || "",
-            isExisting: false
+            isExisting: false,
+            isSelf: true
         }]);
         handleAddMember();
     }, []);
@@ -76,7 +80,8 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
                 id: m.id,
                 name: m.name,
                 email: m.email || '',
-                isExisting: true
+                isExisting: true,
+                isSelf: (m.email || '').toLowerCase() === selfEmail
             }));
             setMembers(rows);
             }
@@ -135,17 +140,17 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
         e.preventDefault();
         setSubmitting(true);
         try {
-            let imageUrlToSave = group ? (group?.image || defaultAvatar) : defaultAvatar; // [CHANGED]
+            let imageUrlToSave = group ? (group?.image || defaultAvatar) : defaultAvatar;
             if (file) {
-            const fd = new FormData();
-            fd.append('image', file);
-            const uploadRes = await fetch('http://localhost:5000/api/upload', { method: 'POST', body: fd });
-            const { url } = await uploadRes.json();
-            imageUrlToSave = url;
+                const fd = new FormData();
+                fd.append('image', file);
+                const uploadRes = await fetch('http://localhost:5000/api/upload', { method: 'POST', body: fd });
+                const { url } = await uploadRes.json();
+                imageUrlToSave = url;
             }
 
             const idToken = await auth.currentUser?.getIdToken();
-            const payload = { groupId: group ? (group.id || group._id) : null, groupName, currencyCode, imageUrl: imageUrlToSave };
+            const payload = { groupId: group ? (group.id || group._id) : null, groupName, currencyCode, imageUrl: imageUrlToSave, inviteLink };
 
             const res = await fetch('http://localhost:5000/api/groups/init', {
             method: 'POST',
@@ -164,7 +169,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             }
             else{
                 invites = (members || [])
-                .filter(m => !m.isExisting) // חדשים בלבד
+                .filter(m => !m.isExisting)
                 .filter(m => (m.name || '').trim() && (m.email || '').trim())
                 .map(m => ({ name: m.name.trim(), email: m.email.trim().toLowerCase() }));
             }
@@ -219,14 +224,38 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
         }
     }
 
+    function handleCreateInviteLink(e) {
+        e.preventDefault();
+        const token = makeUrlSafeToken();
+        setInviteLink(`http://localhost:5000/join/${token}`);
+        setAddMemberMode('link');
+        console.log('invite link', `http://localhost:5000/join/${token}`);
+    }
+
+    function makeUrlSafeToken(bytes = 16) {
+        const arr = new Uint8Array(bytes);
+        crypto.getRandomValues(arr);
+        let s = '';
+        for (let i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
+        return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+    }
+
+    async function handleCopyLink(){
+        try {
+            await navigator.clipboard.writeText(inviteLink);
+            toast.success('Link copied!');
+        } catch (e) {
+            console.error('Copy failed: ' + e);
+        }
+    }
 
     const isFormValid = useMemo(() => {
-        const hasMembers = members.length > 0;
-        const membersValid = members.every(m => m.name.trim() && m.email.trim());
+        const hasMembers = addMemberMode === 'manual' ? members.length > 0 : true;
+        const membersValid = addMemberMode === 'manual' ? members.every(m => m.name.trim() && m.email.trim()): true;
         const hasGroupName = !!groupName.trim();
         const hasCurrency = !!currencyCode;
         return hasMembers && membersValid && hasGroupName && hasCurrency;
-    }, [members, groupName, currencyCode]);
+    }, [members, groupName, currencyCode, addMemberMode]);
 
     if (submitting) {
         return (
@@ -274,6 +303,11 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
                 </div>
             </div>
             <h4>Add Group Members</h4>
+            {addMemberMode === 'manual' ? (
+            <>
+            <p>
+                Send an <a className={styles.links} href="#" onClick={handleCreateInviteLink}>invite link</a> to this group.
+            </p>
             {members.map((m) => (
             <div
             key={m.id}
@@ -285,27 +319,47 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
                 marginBottom: 8
             }}
             >
-            <input
-                type="text"
-                placeholder="Full name"
-                value={m.name}
-                onChange={(e) => upsertMember(m.id, "name", e.target.value)}
-                required={!m.isExisting}
-                readOnly={!!group && m.isExisting}
-            />
-            <input
-                type="email"
-                placeholder="Email"
-                value={m.email}
-                onChange={(e) => upsertMember(m.id, "email", e.target.value)}
-                required={!m.isExisting}
-                readOnly={!!group && m.isExisting}
-            />
-            <button className={styles.removeMemberButton} onClick={() => handleRemoveMember(m.id)}>✕</button>
-
+                <input
+                    type="text"
+                    placeholder="Full name"
+                    value={m.name}
+                    onChange={(e) => upsertMember(m.id, "name", e.target.value)}
+                    required={!m.isExisting}
+                    readOnly={(!!group && m.isExisting) || (!!m.isSelf)}
+                />
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={m.email}
+                    onChange={(e) => upsertMember(m.id, "email", e.target.value)}
+                    required={!m.isExisting}
+                    readOnly={(!!group && m.isExisting) || (!!m.isSelf)}
+                />
+                {!m.isSelf && (
+                    <button className={styles.removeMemberButton} onClick={() => handleRemoveMember(m.id)}>✕</button>
+                )}
             </div>
         ))}
         <a className="link" href="#" onClick={handleAddMember}>+ Add a member</a>
+        </>
+        ) : (
+        <>
+        <div className={styles.inviteLinkContainer}>
+            <input type="text" value={inviteLink} readOnly></input>
+            <button className={styles.copyButton} onClick={handleCopyLink}>Copy</button>
+        </div>
+        <a
+        href="#"
+        className={styles.links}
+        onClick={(e) => {
+            e.preventDefault();
+            setAddMemberMode('manual');
+        }}
+        >
+        Or add group members manually
+        </a>
+        </>
+        )}
         <br />
         <div className={styles.actions}>
             <button className="button" type="submit" onClick={handleSubmit} disabled={!isFormValid}>

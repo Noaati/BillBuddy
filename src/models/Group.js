@@ -15,7 +15,8 @@ const groupSchema = new mongoose.Schema(
       uppercase: true,
       default: 'USD'
     },
-    image: { type: String, trim: true }
+    image: { type: String, trim: true },
+    inviteToken: { type: String, index: true, unique: true, sparse: true }
   },
   {
     timestamps: true,            // createdAt, updatedAt
