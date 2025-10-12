@@ -1050,6 +1050,59 @@ app.post('/api/invite/accept', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+app.get('/api/myMembers', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+
+    const myMemberships = await GroupMember.find(
+      { member: uid, active: true },
+      { group: 1, _id: 1 }
+    ).lean();
+
+    const groupIds = myMemberships.map(m => m.group).filter(Boolean);
+    if (!groupIds.length) return res.json({ contacts: [] });
+
+    const myMemberIds = new Set(myMemberships.map(m => String(m._id)));
+    console.log('groupIds:', groupIds); 
+
+    const docs = await GroupMember.find(
+      {
+        group: { $in: groupIds },
+        _id: { $nin: Array.from(myMemberIds) }
+      },
+      { name: 1, email: 1, member: 1, updatedAt: 1 }
+    )
+    .populate({ path: 'member', model: 'Account', select: 'firstName lastName email' })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+    console.log(`docs`, docs);
+
+    const seen = new Set();
+    const contacts = [];
+    for (const d of docs) {
+      const email = (d.email || d.member?.email || '').trim().toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+
+      const fullName =
+        d.name ||
+        `${d.member?.firstName || ''} ${d.member?.lastName || ''}`.trim() ||
+        email.split('@')[0];
+
+      contacts.push({ name: fullName, email });
+      if (contacts.length >= 50) break;
+    }
+
+    return res.json({ contacts });
+  } catch (err) {
+    console.error('[myMembers] error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
 ////////////
 const metaRoutes = require('./routes/meta');
 app.use('/api/meta', metaRoutes);

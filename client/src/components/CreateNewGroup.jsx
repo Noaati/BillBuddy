@@ -18,6 +18,10 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     const [addMemberMode, setAddMemberMode] = useState('manual');
     const selfEmail = auth.currentUser?.email?.toLowerCase() || '';
 
+    const [recentContacts, setRecentContacts] = useState([]); // [{name,email}]
+    const [suggestions, setSuggestions] = useState({}); // { [memberId]: [{name,email}] }
+
+
     useEffect(() => {
         if (group) {
         setGroupName(group.name || '');
@@ -25,6 +29,44 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
         setPreviewUrl(group.image || null);
         }
     }, [group]);
+
+    useEffect(() => {
+        (async () => {
+            try {
+            const idToken = await auth.currentUser?.getIdToken();
+            const r = await fetch('http://localhost:5000/api/myMembers', {
+                headers: { Authorization: `Bearer ${idToken}` }
+            });
+            const data = await r.json();
+            setRecentContacts(data?.contacts || []);
+            } catch(e) { console.warn('load contacts failed', e); }
+        })();
+        }, []);
+
+        function handleNameChange(memberId, value) {
+        upsertMember(memberId, 'name', value);
+        const v = value.trim().toLowerCase();
+        if (!v) return setSuggestions(s => ({ ...s, [memberId]: [] }));
+
+        const opts = recentContacts
+            .filter(c => (c.name?.toLowerCase().includes(v)))
+            .slice(0, 6);
+        setSuggestions(s => ({ ...s, [memberId]: opts }));
+        }
+
+        function selectSuggestion(memberId, contact) {
+        setSuggestions(s => ({ ...s, [memberId]: [] }));
+        setMembers(prev => prev.map(m =>
+            m.id === memberId ? { ...m, name: contact.name, email: contact.email } : m
+        ));
+    }
+
+    function blurSuggestions(memberId) {
+        setTimeout(() => {
+            setSuggestions(s => ({ ...s, [memberId]: [] }));
+        }, 120);
+    }
+
 
     function handleFileChange(e) {
         const file = e.target.files?.[0];
@@ -319,14 +361,32 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
                 marginBottom: 8
             }}
             >
+            <div className={styles.suggestWrap}>
                 <input
                     type="text"
                     placeholder="Full name"
                     value={m.name}
-                    onChange={(e) => upsertMember(m.id, "name", e.target.value)}
+                    onChange={(e) => handleNameChange(m.id, e.target.value)}
                     required={!m.isExisting}
                     readOnly={(!!group && m.isExisting) || (!!m.isSelf)}
+                    onBlur={() => blurSuggestions(m.id)}
                 />
+
+                {suggestions[m.id]?.length > 0 && (
+                    <div className={styles.suggestBox}>
+                    {suggestions[m.id].map((c, idx) => (
+                        <button
+                        key={idx}
+                        type="button"
+                        className={styles.suggestItem}
+                        onClick={() => selectSuggestion(m.id, c)}
+                        >
+                        <span className={styles.suggestName}>{c.name}</span>
+                        </button>
+                    ))}
+                    </div>
+                )}
+            </div>
                 <input
                     type="email"
                     placeholder="Email"

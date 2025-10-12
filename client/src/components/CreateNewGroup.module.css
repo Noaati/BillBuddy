@@ -94,3 +94,35 @@
   font-size: 14px;
   cursor: pointer;
 }
+
+.suggestWrap {
+  position: relative;
+}
+
+.suggestBox {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #D9D7DA;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  max-height: 220px;
+  overflow: auto;
+  z-index: 20;
+}
+
+.suggestItem {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.suggestItem:hover { background: #faf9f9; }
