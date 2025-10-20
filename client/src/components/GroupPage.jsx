@@ -3,16 +3,16 @@ import groupicon from '../assets/groupIcon.png';
 import hamburger from '../assets/hamburger.png';
 import settings from '../assets/settingIcon.png';
 import styles from './GroupPage.module.css';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { auth } from '../lib/firebase';
 import ExpensesPanel from './ExpensesPanel';
 import PaymentsPanel from './PaymentsPanel';
 import BalancesPanel from './BalancesPanel';
 import { getCurrencySymbol } from '../utils/currency';
 import { toast } from 'react-hot-toast';
+import Modal from '../components/Modal';
 
-
-export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, onAddPayment = () => {}, onPayNow = () => {}, panel, onEditGroup = () => {}, onRestored = () => {} }) {
+export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, onAddPayment = () => {}, onPayNow = () => {}, panel, onEditGroup = () => {}, onRestored = () => {}, onLeaveGroup = () => {} }) {
     const [mode, setMode] = useState(panel ?? 'Expenses');
     const [expenses, setExpenses] = useState(null);
     const avatarSrc = group?.image || groupicon;
@@ -20,6 +20,10 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
     const [balances, setBalances] = useState(null);
     const symbol = getCurrencySymbol(group?.currency || 'USD');
     const [openActions, setOpenActions] = useState(false);
+
+    const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+    const settingsRef = useRef(null);
+    const [confirmLeaveOpen, setConfirmLeaveOpen] = useState(false);
 
     useEffect(() => {
         if (panel && panel !== mode) setMode(panel);
@@ -59,6 +63,33 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
         })();
     }, [group, mode, refreshKey]);
 
+    useEffect(() => { 
+        function onDocClick(e) { 
+            if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+                setDesktopMenuOpen(false);
+            }
+        }
+     document.addEventListener('mousedown', onDocClick);
+     return () => document.removeEventListener('mousedown', onDocClick);
+   }, []);
+
+   async function handleLeaveGroup() {
+     try {
+       const idToken = await auth.currentUser?.getIdToken();
+       const r = await fetch(`http://localhost:5000/api/groups/${group?.id}/leave`, {
+         method: 'POST',
+         headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' }
+       });
+       const data = await r.json().catch(() => ({}));
+       if (!r.ok) throw new Error(data?.error || 'Leave failed');
+       toast.success('You left the group');
+       setConfirmLeaveOpen(false);
+       onLeaveGroup();
+     } catch (e) {
+       toast.error(e.message || 'Leave failed');
+     }
+   }
+
     async function handleRestoreGroup() {
         const idToken = await auth.currentUser?.getIdToken();
         console.log('group', group);
@@ -97,14 +128,36 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
                 {group?.active ? (
                 <>
                     <div className={styles.buttonsContainerDesktop}>
-                    <button
-                        type="button"
-                        aria-label="Open group settings"
-                        className={styles.iconButton}
-                        onClick={onEditGroup}
-                    >
-                        <img src={settings} alt="" className={styles.settingsIcon} />
-                    </button>
+                       <div className={styles.settingsMenuWrap} ref={settingsRef}>
+                         <button
+                             type="button"
+                             className={styles.iconButton}
+                             onClick={() => setDesktopMenuOpen(v => !v)}
+                         >
+                             <img src={settings} className={styles.settingsIcon} />
+                         </button>
+                         {desktopMenuOpen && (
+                           <div className={styles.settingsMenu} role="menu">
+                             <button
+                               type="button"
+                               role="menuitem"
+                               className={styles.settingsMenuItem}
+                               onClick={() => { setDesktopMenuOpen(false); onEditGroup(); }}
+                             >
+                               Edit Group
+                             </button>
+                             <div className={styles.settingsMenuDivider} />
+                             <button
+                               type="button"
+                               role="menuitem"
+                               className={`${styles.settingsMenuItem} ${styles.destructive}`}
+                               onClick={() => { setDesktopMenuOpen(false); setConfirmLeaveOpen(true); }}
+                             >
+                               Leave Group
+                             </button>
+                           </div>
+                         )}
+                       </div>
                     <button className={styles.expenseButton} onClick={onAddExpense}>+ Add Expense</button>
                     <button className={styles.paymentButton} onClick={onAddPayment}>{symbol} Add Payment</button>
                     </div>
@@ -133,10 +186,16 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
                                     onClick={() => { onAddPayment(); setOpenActions(false); }}>
                             {symbol} Add Payment
                             </button>
-                            <button type="button" role="menuitem" className={styles.actionsItem}
-                                    onClick={() => { onEditGroup(); setOpenActions(false); }}>
-                            Settings
-                            </button>
+                           <div className={styles.actionsDivider} />
+                           <button type="button" role="menuitem" className={styles.actionsItem}
+                                   onClick={() => { onEditGroup(); setOpenActions(false); }}>
+                             Edit Group
+                           </button>
+                           <button type="button" role="menuitem"
+                                   className={`${styles.actionsItem} ${styles.destructive}`}
+                                   onClick={() => { setOpenActions(false); setConfirmLeaveOpen(true); }}>
+                             Leave Group
+                           </button>
                         </div>
                         </>
                     )}
@@ -179,7 +238,26 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
                 {mode === 'Balances' && <BalancesPanel balances={balances} group={group} refreshKey={refreshKey} onPayNow={onPayNow}/>}
             </div>
         </div>
-
-        </>
+        <Modal
+          open={confirmLeaveOpen}
+          onClose={() => setConfirmLeaveOpen(false)}
+          title={`Leave “${group?.name}”?`}
+          content={(
+            <div>
+              <p>
+                If you leave, you’ll lose access to expenses & payments in this group.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button className={styles.leaveModalButtons} onClick={() => setConfirmLeaveOpen(false)}>
+                  Cancel
+                </button>
+                <button className={`${styles.leaveModalButtons} ${styles.leaveButton}`} onClick={handleLeaveGroup}>
+                  Leave Group
+                </button>
+              </div>
+            </div>
+          )}
+        />
+      </>
     );
-}
+  }

@@ -142,6 +142,12 @@ export default function Dashboard() {
             setSelectedGroup(g => g ? { ...g, active: true } : g);
             setSidebarRefreshKey(k => k + 1);
           }}
+          onLeaveGroup={() => {
+            setSelectedGroup(null);
+            setSidebarRefreshKey(k => k + 1);
+            if (isMobile) setMobilePanel('sidebar');
+          }}
+
           />
         </div>
       </div>

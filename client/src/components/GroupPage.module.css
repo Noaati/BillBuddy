@@ -41,7 +41,6 @@
     color: #fff;
     font-size: 12px;
     cursor: pointer;
-    margin-left: auto;
 }
 
 .paymentButton{
@@ -67,17 +66,13 @@
 .settingsIcon{
   height: 24px;
   display: block;
-  margin-top: 10px;
 }
 
-/* action mobile */
-
-.buttonsContainerDesktop { display: flex; gap: 8px; }
 .buttonsContainerMobile  { display: none; }
 
 @media (max-width: 768px){
   .buttonsContainerDesktop { display: none; }
-  .buttonsContainerMobile  { display: inline-block; position: relative; }
+  .buttonsContainerMobile  { display: inline-block; position: relative; margin-left: auto; }
 }
 
 .actionsFab{
@@ -85,7 +80,9 @@
   border: none;
   background: transparent;
 }
-.actionsBackdrop{ position: fixed; inset: 0; background: transparent; z-index: 1000; }
+
+.actionsBackdrop{
+  position: fixed; inset: 0; background: transparent; z-index: 1000; }
 .actionsMenu{
   position: absolute; right: 0; top: 110%; min-width: 180px;
   background: #fff; border: 1px solid #D9D7DA; border-radius: 12px; padding: 8px;
@@ -97,3 +94,37 @@
 }
 .actionsItem:hover{ background: #FAF9F9; }
 .actionsItem:focus-visible{ outline: 2px solid #A36F9A; outline-offset: 2px; }
+
+
+.settingsMenuWrap { position: relative; display: inline-block; } 
+.settingsMenu { 
+   position: absolute; right: 0; top: calc(100% + 6px);
+   min-width: 200px; background: #fff; border: 1px solid #E7E3EA;
+   border-radius: 12px; box-shadow: 0 12px 28px rgba(0,0,0,.12);
+   padding: 6px; z-index: 1002;
+ }
+ .settingsMenuItem {
+   width: 100%; text-align: left; background: transparent; border: 0;
+   padding: 10px 12px; border-radius: 8px; font-size: 14px; color: #3C2F41; cursor: pointer;
+ }
+ .settingsMenuItem:hover { background: #F7F4F9; }
+ .settingsMenuDivider { height: 1px; background: #EEE7F0; margin: 6px 0; }
+
+ .actionsDivider { height: 1px; background: #EEE7F0; margin: 6px 0; }
+
+.leaveModalButtons{
+  margin-top: 8px;
+  padding: 5px;
+  border-radius: 5px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.leaveButton{
+  border: 1px solid red;
+  color: red;
+}
+
+.destructive{
+  color: red;
+}

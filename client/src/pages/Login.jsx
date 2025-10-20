@@ -53,6 +53,7 @@ export default function Login() {
               body: JSON.stringify({ firstName, lastName }),
             });
 
+            // link the Account to existing group member
             await fetch('http://localhost:5000/api/invites/claim', {
               method: 'POST',
               headers: {

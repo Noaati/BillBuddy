@@ -1,4 +1,3 @@
-console.log('[BOOT]', __filename, new Date().toISOString(), 'pid=', process.pid);
 require('dotenv').config();
 const express = require('express');
 const app = express();
@@ -11,6 +10,7 @@ const multer = require('multer');
 let nodemailer = require('nodemailer');
 const mongoose = require('mongoose');
 const { Types } = mongoose;
+const { upsertGroupMemberByEmail } = require('./services/groupMembers');
 
 //Models
 const Expense = require('./models/Expense');
@@ -24,23 +24,7 @@ const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 app.use(cors());
 app.use(express.json());
-
-const uploadDir = path.join(__dirname, '../uploads');
-fs.mkdirSync(uploadDir, { recursive: true });
-const upload = multer({ dest: uploadDir });
-app.use('/uploads', express.static(uploadDir));
-
-app.post('/api/upload', upload.single('image'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'no file' });
-  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-  res.json({ url: fileUrl });
-});
-
 const PORT = process.env.PORT || 5000;
-
-app.get('/', (req, res) => {
-  res.json({ ok: true, message: 'BillBuddy API running' });
-});
 
 async function verifyFirebaseToken(req, res, next) {
   try {
@@ -57,6 +41,20 @@ async function verifyFirebaseToken(req, res, next) {
   }
 }
 
+const uploadDir = path.join(__dirname, '../uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+const upload = multer({ dest: uploadDir });
+app.use('/uploads', express.static(uploadDir));
+
+app.post('/api/upload', upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'no file' });
+  const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  res.json({ url: fileUrl });
+});
+
+// Routes
+
+// Creates or updates the signed-in user’s Account
 app.post('/api/accounts/init', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid, email } = req.user;
@@ -64,8 +62,8 @@ app.post('/api/accounts/init', verifyFirebaseToken, async (req, res) => {
 
     const update = {
       firstName: String(firstName).trim(),
-      lastName:  String(lastName).trim(),
-      email:     email || null,
+      lastName: String(lastName).trim(),
+      email: email || null,
       updatedAt: new Date(),
     };
 
@@ -82,7 +80,8 @@ app.post('/api/accounts/init', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-app.get('/api/accounts/me', verifyFirebaseToken, async (req, res) => {
+// Returns the signed-in user’s Account details.
+app.get('/api/accounts/current', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;
     const account = await Account.findById(uid);
@@ -96,6 +95,7 @@ app.get('/api/accounts/me', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Creates a new group or updates an existing one owned by the user.
 app.post('/api/groups/init', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid } = req.user;
@@ -129,82 +129,77 @@ app.post('/api/groups/init', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-
+// Adds multiple members to a group and send emails to unregistered ones).
 app.post('/api/groups/:groupId/members/bulk', verifyFirebaseToken, async (req, res) => {
-
   try {
     const { uid } = req.user;
     const inviter = await Account.findById(uid).lean();
     const { groupId } = req.params;
     const { invites = [] } = req.body || {};
 
-    const ops = [];
-
     const cleaned = Array.isArray(invites)
       ? invites
           .map(i => ({
-            name:  (i?.name  || '').trim(),
+            name:  (i?.name || '').trim(),
             email: (i?.email || '').trim().toLowerCase(),
           }))
           .filter(i => i.name && i.email)
       : [];
 
-    if (cleaned.length) {
-      const emails = [...new Set(cleaned.map(i => i.email))];
-      const accounts = await Account.find({ email: { $in: emails } }, { _id: 1, email: 1 }).lean();
-      const byEmail = new Map(accounts.map(a => [a.email.toLowerCase(), a._id]));
+    if (!cleaned.length) return res.json({ ok: true, result: null });
 
-      for (const inv of cleaned) {
-        const memberId = byEmail.get(inv.email);
+    const inviterName = [inviter?.firstName, inviter?.lastName].filter(Boolean).join(' ') || 'Member';
 
-        if (memberId) {
-          console.log('if (memberId)');
-          ops.push({
-            updateOne: {
-              filter: { group: groupId, member: memberId },
-              update: {
-                $setOnInsert: { group: groupId, member: memberId },
-                $set: { active: true, email: inv.email, name: inv.name }
-              },
-              upsert: true
-            }
-          });
-        } else {
-          ops.push({
-            updateOne: {
-              filter: { group: groupId, member: null, email: inv.email },
-              update: {
-                $setOnInsert: { group: groupId, member: null, email: inv.email },
-                $set: { active: false, name: inv.name }
-              },
-              upsert: true
-            }
-          });
-          const emailBody = `Hi ${inv.name || ''},\n\nYou've been invited by ${inviter.name || ''} to BillBuddy group.`;
-          await sendEmail(inv.email, 'BillBuddy Invite', emailBody);
+    const uniqueByEmail = Array.from(
+      new Map(cleaned.map(x => [x.email, x])).values()
+    );
+
+    const results = [];
+    for (const inv of uniqueByEmail) {
+      const r = await upsertGroupMemberByEmail({
+        groupId,
+        email: inv.email,
+        name: inv.name,
+        inviterName,
+      });
+      results.push(r);
+
+      if (!r.accountId && r.active === false) {
+        console.log('[invite email] sending to:', r.email);
+        const body = `Hi ${r.name || ''},\n\nYou've been invited by ${inviterName} to a BillBuddy group.`;
+        try {
+          await sendEmail(r.email, 'BillBuddy Invite', body);
+        } catch (e) {
+          console.error('[invite email] FAILED:', r.email, e?.message || e);
         }
       }
-
     }
 
-    const result = ops.length ? await GroupMember.bulkWrite(ops, { ordered: false }) : null;
-    res.json({ ok: true, result });
+    return res.json({
+      ok: true,
+      upserts: results.map(r => ({
+        memberId: r.memberId,
+        email: r.email,
+        active: r.active,
+        created: r.created,
+        updated: r.updated,
+        accountId: r.accountId || null,
+      })),
+    });
   } catch (err) {
     console.error('bulk add members error:', err);
-    res.status(500).json({ error: err.message, stack: err.stack });
-
+    return res.status(500).json({ error: err.message, stack: err.stack });
   }
 });
 
+// Link pending email invites to the current user (set member=uid, active=true)
 app.post('/api/invites/claim', verifyFirebaseToken, async (req, res) => {
   try {
     const { uid, email } = req.user;
-    if (!email) return res.status(400).json({ error: 'No email on token' });
 
-    const normEmail = String(email).trim().toLowerCase();
-
+    const cleanEmail = String(email).trim().toLowerCase();
     const result = await GroupMember.updateMany(
-      { member: null, email: normEmail },
+      { member: null, email: cleanEmail },
       { $set: { member: uid, active: true } }
     );
 
@@ -219,6 +214,7 @@ app.post('/api/invites/claim', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Get the current user's groups
 app.get('/api/groups', verifyFirebaseToken, async (req, res) => {
   try {
     const status = (req.query.status || 'active').toLowerCase();
@@ -235,13 +231,10 @@ app.get('/api/groups', verifyFirebaseToken, async (req, res) => {
       ])
     ].map(id => require('mongoose').Types.ObjectId.createFromHexString(id));
 
-    if (!groupIds.length) {
-      return res.json({ ok: true, groups: [] });
-    }
+    if (!groupIds.length) return res.json({ ok: true, groups: [] });
 
     const groupFilter = { _id: { $in: groupIds } };
-    if (status === 'active')   groupFilter.active = true;
-    else if (status === 'archived') groupFilter.active = false;
+    if (status === 'active') groupFilter.active = true;
 
     const groups = await Group.find(
         groupFilter,
@@ -269,6 +262,7 @@ app.get('/api/groups', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Get active members (with Accounts) of a group.
 app.get('/api/groups/:groupId/members', verifyFirebaseToken, async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -313,6 +307,7 @@ app.get('/api/groups/:groupId/members', verifyFirebaseToken, async (req, res) =>
   }
 });
 
+// Creates a new expense record.
 app.post('/api/expenses/init', verifyFirebaseToken, async (req, res) => {
   try {
     const { group, paidBy, amount, description, settled = false } = req.body || {};
@@ -325,6 +320,7 @@ app.post('/api/expenses/init', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Inserts expense shares in bulk and auto-offsets against prior debts/credits.
 app.post('/api/expenses/:expense/shares/bulk', verifyFirebaseToken, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -350,7 +346,6 @@ app.post('/api/expenses/:expense/shares/bulk', verifyFirebaseToken, async (req, 
     if (!Array.isArray(shares) || shares.length === 0) {
       return res.status(400).json({ ok: false, error: 'No shares provided' });
     }
-
 
     const docs = shares.map(s => {
       const amount = Number(s.amount) || 0;
@@ -391,85 +386,7 @@ app.post('/api/expenses/:expense/shares/bulk', verifyFirebaseToken, async (req, 
   }
 });
 
-async function autoOffsetNewExpenseShares({ expenseId, session }) {
-  const exp = await Expense.findById(expenseId)
-    .select('group paidBy')
-    .session(session)
-    .lean();
-  if (!exp) return { totalOffsetsApplied: 0, details: [] };
-
-  const payerId = exp.paidBy;
-  const groupId = exp.group;
-
-  let qNew = ExpenseShare.find({
-    expense: expenseId,
-    owes: { $ne: payerId },
-    $expr: { $lt: ['$paid', '$amount'] },
-  }).populate({ path: 'expense', select: 'createdAt' });
-  if (session) qNew = qNew.session(session);
-  const newShares = await qNew.exec();
-
-  const byCounter = new Map();
-  for (const s of newShares) {
-    const left = Number(s.leftToPay);
-    if (left <= 0) continue;
-    const key = String(s.owes);
-    const arr = byCounter.get(key) || [];
-    arr.push(s);
-    byCounter.set(key, arr);
-  }
-
-  let totalApplied = 0;
-  const perOldExpenseReduce = new Map();
-
-  for (const [counterId, sharesForCounter] of byCounter.entries()) {
-    const candidates = await fetchCandidateSharesForCustom({
-      groupId,
-      owesId: payerId,
-      payeeId: counterId,
-      session,
-    });
-    if (!candidates.length) continue;
-
-    for (const newShare of sharesForCounter) {
-      const leftNew = Number(newShare.leftToPay);
-      if (leftNew <= 0) continue;
-
-      const alloc = await allocateAmountOverShares({
-        total: leftNew,
-        shares: candidates,
-        session,
-      });
-
-      if (alloc.amountApplied > 0) {
-        await applyDeltaToShare(newShare, alloc.amountApplied, session);
-        totalApplied = round2(totalApplied + alloc.amountApplied);
-
-        for (const u of alloc.updates) {
-          const k = String(u.expenseId);
-          const prev = perOldExpenseReduce.get(k) || 0;
-          perOldExpenseReduce.set(k, round2(prev + u.applied));
-        }
-      }
-    }
-  }
-
-  for (const [oldExpenseId, reduceBy] of perOldExpenseReduce.entries()) {
-    await reducePayerSharePaid({ expenseId: oldExpenseId, reduceBy, session });
-  }
-
-  if (totalApplied > 0) {
-    await reducePayerSharePaid({ expenseId, reduceBy: totalApplied, session });
-  }
-
-  return {
-    totalOffsetsApplied: totalApplied,
-    details: Array.from(perOldExpenseReduce, ([expenseId, applied]) => ({ expenseId, applied })),
-  };
-}
-
-
-
+// Returns group details, including computed number of members.
 app.get('/api/groups/:groupId', verifyFirebaseToken, async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -488,6 +405,7 @@ app.get('/api/groups/:groupId', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Returns a group’s expenses with payer info.
 app.get('/api/expenses/:groupId', verifyFirebaseToken, async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -513,6 +431,7 @@ app.get('/api/expenses/:groupId', verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// Returns all shares for a specific expense.
 app.get('/api/expenses/:expenseId/shares', verifyFirebaseToken, async (req, res) => {
   try {
     const { expenseId } = req.params;
@@ -537,6 +456,8 @@ app.get('/api/expenses/:expenseId/shares', verifyFirebaseToken, async (req, res)
   }
 });
 
+
+// Computes balances: who you owe / who owes you.
 app.get('/api/groups/:groupId/payees', verifyFirebaseToken, async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -566,7 +487,7 @@ app.get('/api/groups/:groupId/payees', verifyFirebaseToken, async (req, res) => 
         owes: currMember._id,
         $expr: { $lt: ['$paid', '$amount'] }
       })
-        .select('_id owes amount paid expense') // ← חשוב בשביל shareId
+        .select('_id owes amount paid expense')
         .populate({
           path: 'owes',
           select: 'name member',
@@ -603,7 +524,7 @@ app.get('/api/groups/:groupId/payees', verifyFirebaseToken, async (req, res) => 
         acc.totalLeft = +(acc.totalLeft + left).toFixed(2);
 
         acc.shares.push({
-          shareId: String(d._id),                             // ← תואם לפורמט הישן
+          shareId: String(d._id),
           expenseId: String(d.expense._id),
           description: d.expense.description || '',
           date: d.expense.createdAt,
@@ -712,6 +633,419 @@ app.get('/api/groups/:groupId/payees', verifyFirebaseToken, async (req, res) => 
   }
 });
 
+// Creates a payment, allocates the amount to expense shares and updates balances.
+app.post('/api/groups/:groupId/payments', verifyFirebaseToken, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const { groupId } = req.params;
+    const { uid } = req.user;
+    const { payeeId, totalAmount, shareIds } = req.body || {};
+
+    if (!payeeId) return res.status(400).json({ ok: false, error: 'payeeId is required' });
+    if (!(totalAmount > 0)) return res.status(400).json({ ok: false, error: 'amount must be > 0' });
+
+    const currMember = await GroupMember.findOne(
+      { group: groupId, member: uid, active: true },
+      { _id: 1 }
+    ).lean();
+    let amountApplied = 0, updates = [];
+
+    const [paymentDoc] = await Payment.create([{
+      group: groupId,
+      paidBy: currMember._id,
+      paidTo: payeeId,
+      amount: totalAmount,
+    }], { session });
+
+    const hasSelected = Array.isArray(shareIds) && shareIds.length > 0;
+
+    let shares;
+    if (hasSelected) {
+      shares = await fetchSelectedShares({
+        shareIds,
+        payeeId,
+        groupId,
+      });
+      if (shares.length === 0) throw new Error('No selected shares');
+      const resFull = await fullySettleSelectedShares({ shares, session });
+      amountApplied = resFull.amountApplied;
+      updates = resFull.updates;
+    } else {
+        shares = await fetchCandidateSharesForCustom({
+          groupId,
+          owesId: currMember._id,
+          payeeId,
+        });
+        if (shares.length === 0) throw new Error('No shares found');
+        const alloc = await allocateAmountOverShares({ total: totalAmount, shares, session });
+          amountApplied = alloc.amountApplied;
+          updates = alloc.updates;
+    }
+    const perExpense = new Map();
+    for (const u of updates) {
+      const key = String(u.expenseId);
+      const sum = perExpense.get(key) || 0;
+      perExpense.set(key, round2(sum + Number(u.applied || 0)));
+    }
+
+    for (const [expenseId, reduceBy] of perExpense.entries()) {
+      await reducePayerSharePaid({ expenseId, reduceBy, session });
+    }
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.json({
+      ok: true,
+      paymentId: String(paymentDoc._id),
+      amountSent: totalAmount,
+      amountApplied,
+      updatedShares: updates,
+    });
+
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('create payment error:', err);
+    return res.status(500).json({ ok: false, error: 'Server error' });
+  }
+});
+
+// Returns a group's payments.
+app.get('/api/payments/:groupId', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const payments = await Payment
+      .find({ group: groupId })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'paidBy',
+        select: 'name member',
+        populate: {
+          path: 'member',
+          model: 'Account',
+          select: 'firstName lastName'
+        }
+      })
+      .populate({
+        path: 'paidTo',
+        select: 'name member',
+        populate: {
+          path: 'member',
+          model: 'Account',
+          select: 'firstName lastName'
+        }
+      })
+      .lean();
+
+    return res.json({ ok: true, payments });
+  } catch (err) {
+    console.error('get payments error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Sends a reminder email.
+app.post('/api/email/remind', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { to, subject, text } = req.body || {};
+    console.log(to);
+    console.log(subject);
+        console.log(text);
+
+    if (!to || !subject || !text) {
+      return res.status(400).json({ error: 'to, subject, text are required' });
+    }
+    await sendEmail(to, subject, text);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('send reminder error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Deactivates multiple GroupMember.
+app.post('/api/members/deactivate-bulk', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { memberIds = [] } = req.body;
+    if (!Array.isArray(memberIds) || memberIds.length === 0) {
+      return res.status(400).json({ error: 'must have memberIds' });
+    }
+
+    const r = await GroupMember.updateMany(
+      { _id: { $in: memberIds } },
+      { $set: { active: false } }
+    );
+
+    return res.json({ ok: true, modifiedCount: r.modifiedCount });
+  } catch (err) {
+    console.error('deactivate-bulk error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Deactivate/activate group.
+app.post('/api/groups/:groupId/updateActive', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { active } = req.body;
+    const { groupId } = req.params;
+
+    const g = await Group.findByIdAndUpdate(
+      groupId,
+      { $set: { active: active } },
+      { new: true }
+    );
+
+    if (!g) return res.status(404).json({ error: 'Group not found' });
+    return res.json({ ok: true, groupId: String(g._id), active: g.active });
+  } catch (err) {
+    console.error('deactivate group error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Accepts a group invite token and adds/activates the current user as a member.
+app.post('/api/invite/accept', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { token } = req.body;
+    const { uid, email: tokenEmail } = req.user;
+
+    const g = await Group.findOne(
+      { inviteToken: token },
+      { _id: 1, active: 1 }
+    ).lean();
+    if (!g) return res.status(404).json({ error: 'Group not found' });
+
+    const acc = await Account.findById(uid).select('firstName lastName email').lean();
+    const email = (acc?.email || tokenEmail || '').trim().toLowerCase();
+    const name =
+      `${acc?.firstName || ''} ${acc?.lastName || ''}`.trim() ||
+      (email ? email.split('@')[0] : 'Member');
+
+    await upsertGroupMemberByEmail({
+      groupId: g._id,
+      email,
+      name,
+      accountId: uid,
+      forceActive: true,
+    });
+
+    return res.json({ ok: true, groupId: String(g._id) });
+  } catch (err) {
+    console.error('Failed to accept group invite:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Returns a list of other members from the current user's groups.
+app.get('/api/myMembers', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+
+    const myMemberships = await GroupMember.find(
+      { member: uid, active: true },
+      { group: 1, _id: 1 }
+    ).lean();
+
+    const groupIds = myMemberships.map(m => m.group).filter(Boolean);
+    if (!groupIds.length) return res.json({ contacts: [] });
+
+    const myMemberIds = new Set(myMemberships.map(m => String(m._id)));
+    console.log('groupIds:', groupIds); 
+
+    const docs = await GroupMember.find(
+      {
+        group: { $in: groupIds },
+        _id: { $nin: Array.from(myMemberIds) }
+      },
+      { name: 1, email: 1, member: 1, updatedAt: 1 }
+    )
+    .populate({ path: 'member', model: 'Account', select: 'firstName lastName email' })
+    .sort({ updatedAt: -1 })
+    .lean();
+
+    console.log(`docs`, docs);
+
+    const seen = new Set();
+    const contacts = [];
+    for (const d of docs) {
+      const email = (d.email || d.member?.email || '').trim().toLowerCase();
+      if (!email || seen.has(email)) continue;
+      seen.add(email);
+
+      const fullName =
+        d.name ||
+        `${d.member?.firstName || ''} ${d.member?.lastName || ''}`.trim() ||
+        email.split('@')[0];
+
+      contacts.push({ name: fullName, email });
+      if (contacts.length >= 50) break;
+    }
+
+    return res.json({ contacts });
+  } catch (err) {
+    console.error('[myMembers] error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+// Deactivates membership in the specified group.
+app.post('/api/groups/:groupId/leave', verifyFirebaseToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const { groupId } = req.params;
+
+    const current = await GroupMember.findOne({ group: groupId, member: uid }).lean();
+
+    const r = await GroupMember.updateOne(
+      { _id: current._id },
+      { $set: { active: false } }
+    );
+
+    return res.json({
+      ok: true,
+      left: true,
+      memberId: String(current._id),
+      modifiedCount: r.modifiedCount ?? r.nModified ?? 0
+    });
+  } catch (err) {
+    console.error('[leave group] error:', err);
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+////////////
+const metaRoutes = require('./routes/meta');
+app.use('/api/meta', metaRoutes);
+
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Failed to connect to DB:', err.message);
+});
+
+async function sendEmail(recipientEmail, subject = 'BillBuddy Invite', text = 'Join my group on BillBuddy') {
+  console.log('[sendEmail] start ->', recipientEmail);
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  try {
+    const verifyRes = await transporter.verify();
+    console.log('[mailer] verify:', verifyRes);
+  } catch (e) {
+    console.error('[mailer] verify FAILED:', e);
+    throw e;
+  }
+
+  const mailOptions = {
+    from: process.env.EMAIL_FROM,
+    to: recipientEmail,
+    subject,
+    text,
+    html: `<p>${text}</p>`,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[mailer] sent:', info.messageId, info.response || '');
+    return info;
+  } catch (err) {
+    console.error('[mailer] send FAILED:', err);
+    throw err;
+  }
+}
+
+async function autoOffsetNewExpenseShares({ expenseId, session }) {
+  const exp = await Expense.findById(expenseId)
+    .select('group paidBy')
+    .session(session)
+    .lean();
+  if (!exp) return { totalOffsetsApplied: 0, details: [] };
+
+  const payerId = exp.paidBy;
+  const groupId = exp.group;
+
+  let qNew = ExpenseShare.find({
+    expense: expenseId,
+    owes: { $ne: payerId },
+    $expr: { $lt: ['$paid', '$amount'] },
+  }).populate({ path: 'expense', select: 'createdAt' });
+  if (session) qNew = qNew.session(session);
+  const newShares = await qNew.exec();
+
+  const byCounter = new Map();
+  for (const s of newShares) {
+    const left = Number(s.leftToPay);
+    if (left <= 0) continue;
+    const key = String(s.owes);
+    const arr = byCounter.get(key) || [];
+    arr.push(s);
+    byCounter.set(key, arr);
+  }
+
+  let totalApplied = 0;
+  const perOldExpenseReduce = new Map();
+
+  for (const [counterId, sharesForCounter] of byCounter.entries()) {
+    const candidates = await fetchCandidateSharesForCustom({
+      groupId,
+      owesId: payerId,
+      payeeId: counterId,
+      session,
+    });
+    if (!candidates.length) continue;
+
+    for (const newShare of sharesForCounter) {
+      const leftNew = Number(newShare.leftToPay);
+      if (leftNew <= 0) continue;
+
+      const alloc = await allocateAmountOverShares({
+        total: leftNew,
+        shares: candidates,
+        session,
+      });
+
+      if (alloc.amountApplied > 0) {
+        await applyDeltaToShare(newShare, alloc.amountApplied, session);
+        totalApplied = round2(totalApplied + alloc.amountApplied);
+
+        for (const u of alloc.updates) {
+          const k = String(u.expenseId);
+          const prev = perOldExpenseReduce.get(k) || 0;
+          perOldExpenseReduce.set(k, round2(prev + u.applied));
+        }
+      }
+    }
+  }
+
+  for (const [oldExpenseId, reduceBy] of perOldExpenseReduce.entries()) {
+    await reducePayerSharePaid({ expenseId: oldExpenseId, reduceBy, session });
+  }
+
+  if (totalApplied > 0) {
+    await reducePayerSharePaid({ expenseId, reduceBy: totalApplied, session });
+  }
+
+  return {
+    totalOffsetsApplied: totalApplied,
+    details: Array.from(perOldExpenseReduce, ([expenseId, applied]) => ({ expenseId, applied })),
+  };
+}
 
 async function applyDeltaToShare(share, delta, session) {
   const left = Number(share.leftToPay);
@@ -819,12 +1153,12 @@ async function reducePayerSharePaid({ expenseId, reduceBy, session }) {
 
   const exp = await Expense.findById(expenseId)
     .select('paidBy')
-    .session(session)               // <<<< חשוב
+    .session(session)
     .lean();
   if (!exp?.paidBy) return null;
 
   let q = ExpenseShare.findOne({ expense: expenseId, owes: exp.paidBy });
-  if (session) q = q.session(session);          // <<<< חשוב
+  if (session) q = q.session(session);
   const payerShare = await q.exec();
   if (!payerShare) return null;
 
@@ -834,324 +1168,8 @@ async function reducePayerSharePaid({ expenseId, reduceBy, session }) {
 
   if (next !== prev) {
     payerShare.paid = next;
-    await payerShare.save({ session });         // נשאר
+    await payerShare.save({ session });
     return { payerShareId: String(payerShare._id), decreasedBy: round2(prev - next), prevPaid: prev, newPaid: next };
   }
   return { payerShareId: String(payerShare._id), decreasedBy: 0, prevPaid: prev, newPaid: prev };
-}
-
-
-
-app.post('/api/groups/:groupId/payments', verifyFirebaseToken, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-  try {
-    const { groupId } = req.params;
-    const { uid } = req.user;
-    const { payeeId, totalAmount, shareIds } = req.body || {};
-
-    if (!payeeId) return res.status(400).json({ ok: false, error: 'payeeId is required' });
-    if (!(totalAmount > 0)) return res.status(400).json({ ok: false, error: 'amount must be > 0' });
-
-    const currMember = await GroupMember.findOne(
-      { group: groupId, member: uid, active: true },
-      { _id: 1 }
-    ).lean();
-    let amountApplied = 0, updates = [];
-
-    const [paymentDoc] = await Payment.create([{
-      group: groupId,
-      paidBy: currMember._id,
-      paidTo: payeeId,
-      amount: totalAmount,
-    }], { session });
-
-    const hasSelected = Array.isArray(shareIds) && shareIds.length > 0;
-
-    let shares;
-    if (hasSelected) {
-      shares = await fetchSelectedShares({
-        shareIds,
-        payeeId,
-        groupId,
-      });
-      if (shares.length === 0) throw new Error('No selected shares');
-      const resFull = await fullySettleSelectedShares({ shares, session });
-      amountApplied = resFull.amountApplied;
-      updates = resFull.updates;
-    } else {
-        shares = await fetchCandidateSharesForCustom({
-          groupId,
-          owesId: currMember._id,
-          payeeId,
-        });
-        if (shares.length === 0) throw new Error('No shares found');
-        const alloc = await allocateAmountOverShares({ total: totalAmount, shares, session });
-          amountApplied = alloc.amountApplied;
-          updates = alloc.updates;
-    }
-    const perExpense = new Map();
-    for (const u of updates) {
-      const key = String(u.expenseId);
-      const sum = perExpense.get(key) || 0;
-      perExpense.set(key, round2(sum + Number(u.applied || 0)));
-    }
-
-    for (const [expenseId, reduceBy] of perExpense.entries()) {
-      await reducePayerSharePaid({ expenseId, reduceBy, session });
-    }
-    await session.commitTransaction();
-    session.endSession();
-
-    return res.json({
-      ok: true,
-      paymentId: String(paymentDoc._id),
-      amountSent: totalAmount,
-      amountApplied,
-      updatedShares: updates,
-    });
-
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error('create payment error:', err);
-    return res.status(500).json({ ok: false, error: 'Server error' });
-  }
-});
-
-app.get('/api/payments/:groupId', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { groupId } = req.params;
-
-    const payments = await Payment
-      .find({ group: groupId })
-      .sort({ createdAt: -1 })
-      .populate({
-        path: 'paidBy',
-        select: 'name member',
-        populate: {
-          path: 'member',
-          model: 'Account',
-          select: 'firstName lastName'
-        }
-      })
-      .populate({
-        path: 'paidTo',
-        select: 'name member',
-        populate: {
-          path: 'member',
-          model: 'Account',
-          select: 'firstName lastName'
-        }
-      })
-      .lean();
-
-    return res.json({ ok: true, payments });
-  } catch (err) {
-    console.error('get payments error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/email/remind', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { to, subject, text } = req.body || {};
-    console.log(to);
-    console.log(subject);
-        console.log(text);
-
-    if (!to || !subject || !text) {
-      return res.status(400).json({ error: 'to, subject, text are required' });
-    }
-    await sendEmail(to, subject, text);
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('send reminder error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/members/deactivate-bulk', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { memberIds = [] } = req.body;
-    if (!Array.isArray(memberIds) || memberIds.length === 0) {
-      return res.status(400).json({ error: 'must have memberIds' });
-    }
-
-    const r = await GroupMember.updateMany(
-      { _id: { $in: memberIds } },
-      { $set: { active: false } }
-    );
-
-    return res.json({ ok: true, modifiedCount: r.modifiedCount });
-  } catch (err) {
-    console.error('deactivate-bulk error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/groups/:groupId/updateActive', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { active } = req.body;
-    const { groupId } = req.params;
-
-    const g = await Group.findByIdAndUpdate(
-      groupId,
-      { $set: { active: active } },
-      { new: true }
-    );
-
-    if (!g) return res.status(404).json({ error: 'Group not found' });
-    return res.json({ ok: true, groupId: String(g._id), active: g.active });
-  } catch (err) {
-    console.error('deactivate group error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.post('/api/invite/accept', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { token } = req.body;
-    const { uid, email: tokenEmail } = req.user;
-
-    const g = await Group.findOne(
-      { inviteToken: token },
-      { _id: 1, active: 1 }
-    ).lean();
-  
-    if (!g) return res.status(404).json({ error: 'Group not found' });
-
-    const acc = await Account.findById(uid).select('firstName lastName email').lean();
-    const email = (acc?.email || tokenEmail || '').trim().toLowerCase();
-    const name =
-      `${acc?.firstName || ''} ${acc?.lastName || ''}`.trim() ||
-      (email ? email.split('@')[0] : 'Member');
-
-    await GroupMember.updateOne(
-      { group: g._id, member: uid },
-      {
-        $setOnInsert: {
-          group: g._id,
-          member: uid,
-          email,
-          name
-        },
-        $set: { active: true }
-      },
-      { upsert: true }
-    );
-
-    return res.json({ ok: true, groupId: String(g._id) });
-
-
-  } catch (err) {
-    console.error('Failed to accept group invite:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-app.get('/api/myMembers', verifyFirebaseToken, async (req, res) => {
-  try {
-    const { uid } = req.user;
-
-    const myMemberships = await GroupMember.find(
-      { member: uid, active: true },
-      { group: 1, _id: 1 }
-    ).lean();
-
-    const groupIds = myMemberships.map(m => m.group).filter(Boolean);
-    if (!groupIds.length) return res.json({ contacts: [] });
-
-    const myMemberIds = new Set(myMemberships.map(m => String(m._id)));
-    console.log('groupIds:', groupIds); 
-
-    const docs = await GroupMember.find(
-      {
-        group: { $in: groupIds },
-        _id: { $nin: Array.from(myMemberIds) }
-      },
-      { name: 1, email: 1, member: 1, updatedAt: 1 }
-    )
-    .populate({ path: 'member', model: 'Account', select: 'firstName lastName email' })
-    .sort({ updatedAt: -1 })
-    .lean();
-
-    console.log(`docs`, docs);
-
-    const seen = new Set();
-    const contacts = [];
-    for (const d of docs) {
-      const email = (d.email || d.member?.email || '').trim().toLowerCase();
-      if (!email || seen.has(email)) continue;
-      seen.add(email);
-
-      const fullName =
-        d.name ||
-        `${d.member?.firstName || ''} ${d.member?.lastName || ''}`.trim() ||
-        email.split('@')[0];
-
-      contacts.push({ name: fullName, email });
-      if (contacts.length >= 50) break;
-    }
-
-    return res.json({ contacts });
-  } catch (err) {
-    console.error('[myMembers] error:', err);
-    return res.status(500).json({ error: 'Server error' });
-  }
-});
-
-
-
-////////////
-const metaRoutes = require('./routes/meta');
-app.use('/api/meta', metaRoutes);
-
-connectDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('Failed to connect to DB:', err.message);
-});
-
-async function sendEmail(recipientEmail, subject = 'BillBuddy Invite', text = 'Join my group on BillBuddy') {
-  console.log('[sendEmail] start ->', recipientEmail);
-
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-
-  try {
-    const verifyRes = await transporter.verify();
-    console.log('[mailer] verify:', verifyRes);
-  } catch (e) {
-    console.error('[mailer] verify FAILED:', e);
-    throw e;
-  }
-
-  const mailOptions = {
-    from: process.env.EMAIL_FROM,
-    to: recipientEmail,
-    subject,
-    text,
-    html: `<p>${text}</p>`,
-  };
-
-  try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('[mailer] sent:', info.messageId, info.response || '');
-    return info;
-  } catch (err) {
-    console.error('[mailer] send FAILED:', err);
-    throw err;
-  }
 }

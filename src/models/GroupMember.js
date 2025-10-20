@@ -25,4 +25,40 @@ groupMemberSchema.index(
   { unique: true, partialFilterExpression: { member: null } }
 );
 
+groupMemberSchema.post('updateOne', async function (_res, next) {
+  try {
+    const doc = await this.model.findOne(this.getQuery()).select('group').lean();
+    if (doc) {
+      const sess = this.getOptions()?.session;
+      await recomputeGroupActive(doc.group, sess);
+    }
+    next();
+  } catch (e) { next(e); }
+});
+
+groupMemberSchema.post('updateMany', async function (_res, next) {
+  try {
+    const doc = await this.model.findOne(this.getQuery()).select('group').lean();
+    if (doc) {
+      const sess = this.getOptions()?.session;
+      await recomputeGroupActive(doc.group, sess);
+    }
+    next();
+  } catch (e) { next(e); }
+});
+
+async function recomputeGroupActive(groupId, session) {
+  const GroupMember = require('mongoose').model('GroupMember');
+  const Group = require('mongoose').model('Group');
+
+  let q = GroupMember.countDocuments({ group: groupId, active: true });
+  if (session) q = q.session(session);
+  const cnt = await q;
+
+  let u = Group.updateOne({ _id: groupId }, { $set: { active: cnt > 0 } });
+  if (session) u = u.session(session);
+  await u;
+}
+
+
 module.exports = mongoose.model('GroupMember', groupMemberSchema);
