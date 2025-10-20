@@ -22,7 +22,16 @@ const GroupMember = require('./models/GroupMember');
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
-app.use(cors());
+const allowed = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: allowed,
+  credentials: true,
+}));
+
 app.use(express.json());
 const PORT = process.env.PORT || 5000;
 
