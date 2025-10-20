@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { auth } from '../lib/firebase';
-import styles from './addPayment.module.css';
+import styles from './AddPayment.module.css';
 import { getCurrencySymbol } from '../utils/currency';
 import { toast } from 'react-hot-toast';
 
