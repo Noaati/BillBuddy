@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { auth } from '../lib/firebase';
-import styles from './addExpense.module.css';
+import styles from './AddExpense.module.css';
 import { getCurrencySymbol } from '../utils/currency';
 
 export default function AddExpense({ group, onSuccess = () => {} }) {
