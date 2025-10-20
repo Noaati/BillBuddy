@@ -18,7 +18,7 @@ export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => 
                 setLoading(true);
                 const idToken = await auth.currentUser.getIdToken();
                 const status = viewArchived ? 'all' : 'active';
-                const res = await fetch(`http://localhost:5000/api/groups?status=${status}`, {
+                const res = await fetch(`${window.API_BASE}/groups?status=${status}`, {
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const data = await res.json();

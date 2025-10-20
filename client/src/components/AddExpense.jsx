@@ -28,7 +28,7 @@ export default function AddExpense({ group, onSuccess = () => {} }) {
   useEffect(() => {
     (async () => {
       const idToken = await auth.currentUser?.getIdToken();
-      const res = await fetch(`http://localhost:5000/api/groups/${group?.id}/members`, {
+      const res = await fetch(`${window.API_BASE}/groups/${group?.id}/members`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${idToken}` },
       });
@@ -145,7 +145,7 @@ export default function AddExpense({ group, onSuccess = () => {} }) {
 
     console.log('expense: ', payload);
 
-    const res = await fetch('http://localhost:5000/api/expenses/init', { 
+    const res = await fetch(`${window.API_BASE}/expenses/init`, { 
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
@@ -173,7 +173,7 @@ export default function AddExpense({ group, onSuccess = () => {} }) {
 
 
     if(shares.length){
-      const res2 = await fetch(`http://localhost:5000/api/expenses/${expenseId}/shares/bulk`, {
+      const res2 = await fetch(`${window.API_BASE}/expenses/${expenseId}/shares/bulk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({ shares }),

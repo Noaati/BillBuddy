@@ -44,7 +44,7 @@ export default function Login() {
             const firstName = document.getElementById('firstName')?.value || '';
             const lastName  = document.getElementById('lastName')?.value  || '';
 
-            await fetch('http://localhost:5000/api/accounts/init', {
+            await fetch(`${window.API_BASE}/accounts/init`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -54,7 +54,7 @@ export default function Login() {
             });
 
             // link the Account to existing group member
-            await fetch('http://localhost:5000/api/invites/claim', {
+            await fetch(`${window.API_BASE}/invites/claim`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ export default function Login() {
     if (!pendingToken) return;
 
     try {
-      await fetch('http://localhost:5000/api/invite/accept', {
+      await fetch(`${window.API_BASE}/invite/accept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

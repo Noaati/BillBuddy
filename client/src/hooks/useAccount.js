@@ -13,7 +13,7 @@ export default function useAccount() {
 
         const token = await user.getIdToken();
         console.log('token:', token);
-        const url = `http://localhost:5000/api/accounts/current`;
+        const url = `${window.API_BASE}/accounts/current`;
 
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },

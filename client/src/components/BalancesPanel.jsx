@@ -22,7 +22,7 @@ export default function BalancesPanel({ balances, group, refreshKey, onPayNow })
         console.log('o: ', o);
         try{
             const idToken = await auth.currentUser?.getIdToken();
-            const res = await fetch('http://localhost:5000/api/email/remind', {
+            const res = await fetch(`${window.API_BASE}/api/email/remind`, {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${idToken}`,

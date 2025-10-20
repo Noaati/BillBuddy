@@ -22,7 +22,7 @@ export default function AddPayment({ group, onSuccess = () => {}, initialPayeeId
     useEffect(() => {
         (async () => {
             const idToken = await auth.currentUser?.getIdToken();
-            const res = await fetch(`http://localhost:5000/api/groups/${group.id}/payees`, {
+            const res = await fetch(`${window.API_BASE}/groups/${group.id}/payees`, {
             method: 'GET',
             headers: { Authorization: `Bearer ${idToken}` },
             });
@@ -73,7 +73,7 @@ export default function AddPayment({ group, onSuccess = () => {}, initialPayeeId
                 totalAmount: Number(paymentAmount),
                 ...(atLeastOneSelected ? { shareIds: Array.from(selectedShareIds) } : {})
             };
-            const res = await fetch(`http://localhost:5000/api/groups/${group?.id}/payments`, {
+            const res = await fetch(`${window.API_BASE}/groups/${group?.id}/payments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify(body),

@@ -34,7 +34,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
         (async () => {
             try {
             const idToken = await auth.currentUser?.getIdToken();
-            const r = await fetch('http://localhost:5000/api/myMembers', {
+            const r = await fetch(`${window.API_BASE}/myMembers`, {
                 headers: { Authorization: `Bearer ${idToken}` }
             });
             const data = await r.json();
@@ -87,7 +87,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     }, [previewUrl]);
 
     useEffect(() => {
-        fetch('http://localhost:5000/api/meta/currencies')
+        fetch(`${window.API_BASE}/meta/currencies`)
         .then(r => r.json())
         .then(setCurrencies)
         .catch(() => setCurrencies(['USD','EUR','GBP','ILS']));
@@ -113,7 +113,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
         (async () => {
         try {
             const idToken = await auth.currentUser?.getIdToken();
-            const r = await fetch(`http://localhost:5000/api/groups/${group.id || group._id}/members`, {
+            const r = await fetch(`${window.API_BASE}/groups/${group.id || group._id}/members`, {
             headers: { 'Authorization': `Bearer ${idToken}` }
             });
             const data = await r.json();
@@ -167,7 +167,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     async function handleDeactivateGroup(){
         const idToken = await auth.currentUser?.getIdToken();
         console.log('group', group);
-        const dRes = await fetch(`http://localhost:5000/api/groups/${group.id}/updateActive`, {
+        const dRes = await fetch(`${window.API_BASE}/groups/${group.id}/updateActive`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({ active: false })
@@ -186,7 +186,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             if (file) {
                 const fd = new FormData();
                 fd.append('image', file);
-                const uploadRes = await fetch('http://localhost:5000/api/upload', { method: 'POST', body: fd });
+                const uploadRes = await fetch(`${window.API_BASE}/upload`, { method: 'POST', body: fd });
                 const { url } = await uploadRes.json();
                 imageUrlToSave = url;
             }
@@ -194,7 +194,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             const idToken = await auth.currentUser?.getIdToken();
             const payload = { groupId: group ? (group.id || group._id) : null, groupName, currencyCode, imageUrl: imageUrlToSave, inviteLink };
 
-            const res = await fetch('http://localhost:5000/api/groups/init', {
+            const res = await fetch(`${window.API_BASE}/groups/init`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify(payload),
@@ -217,7 +217,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             }
 
             if (invites.length) {
-                const mRes = await fetch(`http://localhost:5000/api/groups/${groupId}/members/bulk`, {
+                const mRes = await fetch(`${window.API_BASE}/groups/${groupId}/members/bulk`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                     body: JSON.stringify({ invites })
@@ -227,7 +227,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             }
 
             if (toDeactivate.length) {
-                const dRes = await fetch(`http://localhost:5000/api/members/deactivate-bulk`, {
+                const dRes = await fetch(`${window.API_BASE}/members/deactivate-bulk`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
                     body: JSON.stringify({ memberIds: toDeactivate })
@@ -238,7 +238,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
 
             let fullGroup = null;
             try {
-                const gRes = await fetch(`http://localhost:5000/api/groups/${groupId}`, {
+                const gRes = await fetch(`${window.API_BASE}/groups/${groupId}`, {
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const gData = await gRes.json();
@@ -269,9 +269,8 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     function handleCreateInviteLink(e) {
         e.preventDefault();
         const token = makeUrlSafeToken();
-        setInviteLink(`http://localhost:5000/join/${token}`);
+        setInviteLink(`${window.API_BASE}/join/${token}`);
         setAddMemberMode('link');
-        console.log('invite link', `http://localhost:5000/join/${token}`);
     }
 
     function makeUrlSafeToken(bytes = 16) {

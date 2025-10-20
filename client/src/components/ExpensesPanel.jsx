@@ -32,7 +32,7 @@ export default function ExpensesPanel({ expenses, group, refreshKey }) {
 
         if (!sharesByExpense[expenseId]) {
             const idToken = await auth.currentUser?.getIdToken();
-            const res = await fetch(`http://localhost:5000/api/expenses/${expenseId}/shares`, {
+            const res = await fetch(`${window.API_BASE}/expenses/${expenseId}/shares`, {
                 method: 'GET',
                 headers: { Authorization: `Bearer ${idToken}` },
             });

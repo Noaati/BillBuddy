@@ -33,7 +33,7 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
         (async () => {
             const idToken = await auth.currentUser?.getIdToken();
             if(mode === 'Expenses') {
-                const res = await fetch(`http://localhost:5000/api/expenses/${group?.id}`, {
+                const res = await fetch(`${window.API_BASE}/expenses/${group?.id}`, {
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const data = await res.json();
@@ -41,7 +41,7 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
                 setExpenses(data?.expenses || []);
             }
             if(mode === 'Payments'){
-                const pres = await fetch(`http://localhost:5000/api/payments/${group?.id}`, {
+                const pres = await fetch(`${window.API_BASE}/payments/${group?.id}`, {
                 headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const pdata = await pres.json();
@@ -49,7 +49,7 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
                 setPayments(pdata?.payments || []);
             }
             if (mode === 'Balances') {
-                const bres = await fetch(`http://localhost:5000/api/groups/${group?.id}/payees?direction=both`, {
+                const bres = await fetch(`${window.API_BASE}/groups/${group?.id}/payees?direction=both`, {
                     headers: { 'Authorization': `Bearer ${idToken}` }
                 });
                 const bdata = await bres.json();
@@ -76,7 +76,7 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
    async function handleLeaveGroup() {
      try {
        const idToken = await auth.currentUser?.getIdToken();
-       const r = await fetch(`http://localhost:5000/api/groups/${group?.id}/leave`, {
+       const r = await fetch(`${window.API_BASE}/groups/${group?.id}/leave`, {
          method: 'POST',
          headers: { 'Authorization': `Bearer ${idToken}`, 'Content-Type': 'application/json' }
        });
@@ -93,7 +93,7 @@ export default function GroupPage({ group, onAddExpense = () => {}, refreshKey, 
     async function handleRestoreGroup() {
         const idToken = await auth.currentUser?.getIdToken();
         console.log('group', group);
-        const dRes = await fetch(`http://localhost:5000/api/groups/${group.id}/updateActive`, {
+        const dRes = await fetch(`${window.API_BASE}/groups/${group.id}/updateActive`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
             body: JSON.stringify({ active: true })
