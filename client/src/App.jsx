@@ -1,5 +1,5 @@
 import useAuth from './hooks/useAuth';
-import Login from './pages/login';
+import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 
 export default function App() {
