@@ -18,8 +18,8 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     const [addMemberMode, setAddMemberMode] = useState('manual');
     const selfEmail = auth.currentUser?.email?.toLowerCase() || '';
 
-    const [recentContacts, setRecentContacts] = useState([]); // [{name,email}]
-    const [suggestions, setSuggestions] = useState({}); // { [memberId]: [{name,email}] }
+    const [recentContacts, setRecentContacts] = useState([]);
+    const [suggestions, setSuggestions] = useState({});
 
 
     useEffect(() => {
@@ -326,21 +326,25 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
         <div>
             <div className={styles.groupForm}>
                 <div className={styles.groupFields}>
-                <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} required />
-                <select required value={currencyCode} onChange={(e)=>setCurrencyCode(e.target.value)}>
-                    {currencies.map(code => (
-                    <option key={code} value={code}>{code}</option>
-                    ))}
-                </select>
-                <input type="file" accept="image/*" onChange={handleFileChange} />
-                </div>
-
-                <div className={styles.profileImage}>
-                <img
-                    src={previewUrl || defaultAvatar}
-                    alt="Group profile"
-                    className={styles.profileImageImg}
-                />
+                    <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} required />
+                    <select required value={currencyCode} onChange={(e)=>setCurrencyCode(e.target.value)}>
+                        {currencies.map(code => (
+                        <option key={code} value={code}>{code}</option>
+                        ))}
+                    </select>
+                    <label className={styles.profileImage} style={{ cursor: 'pointer' }}>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        hidden
+                    />
+                    <img
+                        src={previewUrl || defaultAvatar}
+                        alt="Group profile"
+                        className={styles.profileImageImg}
+                    />
+                    </label>
                 </div>
             </div>
             <h4>Add Group Members</h4>
