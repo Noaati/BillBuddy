@@ -332,20 +332,20 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
                         <option key={code} value={code}>{code}</option>
                         ))}
                     </select>
-                    <label className={styles.profileImage} style={{ cursor: 'pointer' }}>
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        hidden
-                    />
-                    <img
-                        src={previewUrl || defaultAvatar}
-                        alt="Group profile"
-                        className={styles.profileImageImg}
-                    />
-                    </label>
                 </div>
+                <label className={styles.profileImage} style={{ cursor: 'pointer' }}>
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    hidden
+                />
+                <img
+                    src={previewUrl || defaultAvatar}
+                    alt="Group profile"
+                    className={styles.profileImageImg}
+                />
+                </label>
             </div>
             <h4>Add Group Members</h4>
             {addMemberMode === 'manual' ? (
