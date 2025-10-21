@@ -269,7 +269,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     function handleCreateInviteLink(e) {
         e.preventDefault();
         const token = makeUrlSafeToken();
-        setInviteLink(`${window.API_BASE}/join/${token}`);
+        setInviteLink(`https://billbuddy.work/join/${token}`);
         setAddMemberMode('link');
     }
 
