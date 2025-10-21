@@ -17,6 +17,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     const [inviteLink, setInviteLink] = useState('');
     const [addMemberMode, setAddMemberMode] = useState('manual');
     const selfEmail = auth.currentUser?.email?.toLowerCase() || '';
+    const [inviteToken, setInviteToken] = useState('');
 
     const [recentContacts, setRecentContacts] = useState([]);
     const [suggestions, setSuggestions] = useState({});
@@ -192,7 +193,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
             }
 
             const idToken = await auth.currentUser?.getIdToken();
-            const payload = { groupId: group ? (group.id || group._id) : null, groupName, currencyCode, imageUrl: imageUrlToSave, inviteLink };
+            const payload = { groupId: group ? (group.id || group._id) : null, groupName, currencyCode, imageUrl: imageUrlToSave, inviteToken };
 
             const res = await fetch(`${window.API_BASE}/groups/init`, {
             method: 'POST',
@@ -269,6 +270,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
     function handleCreateInviteLink(e) {
         e.preventDefault();
         const token = makeUrlSafeToken();
+        setInviteToken(token);
         setInviteLink(`https://billbuddy.work/join/${token}`);
         setAddMemberMode('link');
     }

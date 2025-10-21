@@ -213,19 +213,19 @@ export default function Login() {
   function getAuthErrorMessage(err) {
     const code = err?.code || '';
     const map = {
-      'auth/invalid-credential': 'האימייל או הסיסמה שגויים',
-      'auth/invalid-login-credentials': 'האימייל או הסיסמה שגויים',
-      'auth/invalid-email': 'האימייל אינו תקין',
-      'auth/user-disabled': 'המשתמש הזה הושבת',
-      'auth/user-not-found': 'לא נמצא משתמש עם האימייל הזה',
-      'auth/wrong-password': 'האימייל או הסיסמה שגויים',
-      'auth/too-many-requests': 'יותר מדי נסיונות. נסו שוב בעוד כמה דקות',
-      'auth/network-request-failed': 'בעיית רשת. בדקו חיבור ונסו שוב',
-      'auth/internal-error': 'שגיאה פנימית. נסו שוב',
-      'auth/email-already-in-use': 'האימייל כבר בשימוש',
-      'auth/weak-password': 'הסיסמה קצרה מדי (מינימום 6 תווים)',
+      'auth/invalid-credential': 'Email or password is incorrect',
+      'auth/invalid-login-credentials': 'Email or password is incorrect',
+      'auth/invalid-email': 'Invalid email address',
+      'auth/user-disabled': 'This user account has been disabled',
+      'auth/user-not-found': 'No user found with this email address',
+      'auth/wrong-password': 'Email or password is incorrect',
+      'auth/too-many-requests': 'Too many attempts. Please try again later',
+      'auth/network-request-failed': 'Network error. Please check your connection and try again',
+      'auth/internal-error': 'Internal error. Please try again',
+      'auth/email-already-in-use': 'This email address is already in use',
+      'auth/weak-password': 'Password is too short (minimum 6 characters)',
     };
-    return map[code] || 'לא הצלחנו להיכנס. בדקו את הפרטים ונסו שוב';
+    return map[code] || 'We couldn’t sign you in. Please check your details and try again';
   }
 
   async function handleResetPassword(e) {
@@ -233,16 +233,17 @@ export default function Login() {
     setError('');
     setMessage('');
     if (!email) {
-      setError('כדי לאפס סיסמה, הזינו קודם את כתובת האימייל.');
+      setError('Please enter your email address to reset your password.');
       return;
     }
-    try{
+    try {
       await sendPasswordResetEmail(auth, email);
-      setMessage('במידה וקיים משתמש עם כתובת האימייל הזו, יישלח קישור לאיפוס הסיסמה');
+      setMessage('If an account with this email exists, a password reset link has been sent.');
     } catch {
-      setError('כדי לאפס סיסמה, הזינו קודם את כתובת האימייל');
+      setError('Please enter your email address to reset your password.');
     }
   }
+
 }
 
 
