@@ -95,11 +95,13 @@ export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => 
                 </div>
             )}
 
-            {!loading && (!groups || groups.length === 0) && (
+            {!loading && (groups?.length ?? 0) === 0 && (
                 <div className={styles.noGroup}>No groups yet.
                 <br />
                 Create one to get started!</div>
             )}
+            <pre style={{opacity:.6}}>loading={String(loading)} groupsLen={(groups?.length ?? 0)}</pre>
+
         </div>
         }
 
