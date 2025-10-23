@@ -20,6 +20,10 @@ const Account = require('./models/Account');
 const Group = require('./models/Group');
 const GroupMember = require('./models/GroupMember');
 
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 const allowed = (process.env.CORS_ORIGIN || '')
