@@ -251,6 +251,7 @@ export default function CreateNewGroup({ account, onSuccess = () => {}, group = 
                     currency: g.currency,
                     image: g.image,
                     numberOfMembers: g.numberOfMembers,
+                    active: !!g.active
                     };
                 }
             } catch (e) {
