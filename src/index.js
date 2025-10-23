@@ -20,7 +20,7 @@ const Account = require('./models/Account');
 const Group = require('./models/Group');
 const GroupMember = require('./models/GroupMember');
 
-app.get('/health', (req, res) => {
+app.head('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
