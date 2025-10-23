@@ -94,16 +94,14 @@ export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => 
                     Click to hide archived groups
                 </div>
             )}
-
-            {!loading && (groups?.length ?? 0) === 0 && (
-                <div className={styles.noGroup}>No groups yet.
-                <br />
-                Create one to get started!</div>
-            )}
-            <pre style={{opacity:.6}}>loading={String(loading)} groupsLen={(groups?.length ?? 0)}</pre>
-
         </div>
         }
+
+        {!loading && (groups?.length ?? 0) === 0 && (
+            <div className={styles.noGroup}>No groups yet.
+            <br />
+            Create one to get started!</div>
+        )}
 
         <div className={styles.bottomSection}>
         <div className="divider"></div>
