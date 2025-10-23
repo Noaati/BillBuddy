@@ -95,7 +95,7 @@ export default function Sidebar({ onSelectGroup = () => {} , onNewGroup = () => 
                 </div>
             )}
 
-            {!loading && Array.isArray(groups) && groups.length === 0 && (
+            {!loading && (!groups || groups.length === 0) && (
                 <div className={styles.noGroup}>No groups yet.
                 <br />
                 Create one to get started!</div>
